@@ -2,5 +2,5 @@
     "port": "/dev/tty.usbmodem21401",
     "board": "arduino:avr:uno",
     "sketch": "motorTest/motorTest.ino",
-    "programmer": "arduino:avrispmkii"
+    "programmer": "avrispmkii"
 }

@@ -15,11 +15,11 @@ const int rightAndLeft = A0;
 const int backAndForth = A1;
 const uint8_t DEVICE_ADDRESS60 = 0x60;//デバイスアドレス（スレーブ）
 const uint8_t DEVICE_ADDRESS61 = 0x61;//
-int centerLR = 500;
-int centerBF = 500;
-int deltaMaxLR = 150;
+int centerRL = 511;
+int centerBF = 511;
+int deltaMaxRL = 150;
 int deltaMaxBF = 150;
-int deltaMinLR = 50;
+int deltaMinRL = 50;
 int deltaMinBF = 50;
 uint8_t i2cFirst = DEVICE_ADDRESS60;
 uint8_t i2cLater = DEVICE_ADDRESS61;
@@ -35,27 +35,50 @@ void setup() {
   pinMode(button, INPUT);
   pinMode(13, OUTPUT);
   pinMode(10, OUTPUT);
-  pinMode(rightAndLeft, INPUT);
   waitButtonUntil(HIGH);
   centerBF = analogRead(backAndForth);
-  Serial.print("centerBF: ");
-  Serial.println(centerBF);
+  // Serial.print("centerBF: ");
+  // Serial.println(centerBF);
   tone(buzzer, 1047, t);
   delay(t);
   waitButtonUntil(LOW);
   delay(50);
   waitButtonUntil(HIGH);
   deltaMinBF = analogRead(backAndForth) - centerBF;
-  Serial.print("deltaMinBF: ");
-  Serial.println(deltaMinBF);
+  // Serial.print("deltaMinBF: ");
+  // Serial.println(deltaMinBF);
   tone(buzzer, 1319, t);
   delay(t);
   waitButtonUntil(LOW);
   delay(50);
   waitButtonUntil(HIGH);
   deltaMaxBF = analogRead(backAndForth) - centerBF;
-  Serial.print("deltaMaxBF: ");
-  Serial.println(deltaMaxBF);
+  // Serial.print("deltaMaxBF: ");
+  // Serial.println(deltaMaxBF);
+  tone(buzzer, 1568, t);
+  delay(t);
+  // waitButtonUntil(LOW);
+  // delay(50);
+  // waitButtonUntil(HIGH);
+  // centerRL = analogRead(rightAndLeft);
+  // // Serial.print("centerRL: ");
+  // // Serial.println(centerRL);
+  // tone(buzzer, 1047, t);
+  // delay(t);
+  waitButtonUntil(LOW);
+  delay(50);
+  waitButtonUntil(HIGH);
+  deltaMinRL = analogRead(rightAndLeft) - centerRL;
+  // Serial.print("deltaMinRL: ");
+  // Serial.println(deltaMinRL);
+  tone(buzzer, 1319, t);
+  delay(t);
+  waitButtonUntil(LOW);
+  delay(50);
+  waitButtonUntil(HIGH);
+  deltaMaxRL = analogRead(rightAndLeft) - centerRL;
+  // Serial.print("deltaMaxRL: ");
+  // Serial.println(deltaMaxRL);
   tone(buzzer, 1568, t);
   delay(t);
   waitButtonUntil(LOW);
@@ -69,109 +92,47 @@ void setup() {
 
 void loop() {
   unsigned long startDelay = 0;
-  while (digitalRead(button) == HIGH)
+  uint16_t Vl = 2047;
+  uint16_t Vr = 2047;
+  int bf = 0;
+  int bf1 = 0;
+  int rl = 0;
+  if (digitalRead(button) == HIGH)
   {
     digitalWrite(10, HIGH);
     digitalWrite(13, HIGH);
 
-    int rl = analogRead(backAndForth) - centerBF;
+    bf1 = analogRead(backAndForth) - centerBF;
+    bf = sqrt(pow(analogRead(backAndForth) - centerBF, 2) + pow(analogRead(rightAndLeft) - centerRL, 2));
+    rl = analogRead(rightAndLeft) - centerRL;
 
-    uint16_t Vl = map(rl, -deltaMaxBF, deltaMaxBF, 833, 4095);
-    uint16_t Vr = map(rl, -deltaMaxBF, deltaMaxBF, 833, 4095);
-    Wire.beginTransmission(DEVICE_ADDRESS60);
-    Wire.write((Vl>>8)&0x0F);
-    Wire.write(Vl);
-    Wire.endTransmission();
-    Wire.beginTransmission(DEVICE_ADDRESS61);
-    Wire.write((Vr>>8)&0x0F);
-    Wire.write(Vr);
-    Wire.endTransmission();
-    // if (millis() - startDelay >= 100)
-    // {
-    //   Serial.println(s);
-    //   uint16_t Vr = s;
-    //   uint16_t Vl = 4095 - s;
-    //   Wire.beginTransmission(i2cFirst);
-    //   Wire.write((Vr>>8)&0x0F);
-    //   Wire.write(Vr);
-    //   Wire.endTransmission();
-    //   Wire.beginTransmission(i2cLater);
-    //   Wire.write((Vl>>8)&0x0F);
-    //   Wire.write(Vl);
-    //   Wire.endTransmission();
-    //   // i2cFirst ^= i2cLater;
-    //   // i2cLater ^= i2cFirst;
-    //   // i2cFirst ^= i2cLater;
-    //   s += d;
-    //   if(s <= 0 || 4095 <= s){
-    //     d = -d;
-    //   }
-    //   if(s >= 4095){
-    //     s = 4095;
-    //   }
-    //   if(s <= 0){
-    //     s = 0;
-    //   }
-    //   startDelay = millis();
-    // }
-    // if (-deltaMinBF < rl && rl <= deltaMinBF){
-    //   uint16_t Vl = 2048;
-    //   uint16_t Vr = 2048;
-    //   Wire.beginTransmission(DEVICE_ADDRESS60);
-    //   Wire.write((Vl>>8)&0x0F);
-    //   Wire.write(Vl);
-    //   Wire.endTransmission();
-    //   Wire.beginTransmission(DEVICE_ADDRESS61);
-    //   Wire.write((Vr>>8)&0x0F);
-    //   Wire.write(Vr);
-    //   Wire.endTransmission();
-    //   tone(buzzer, 523, t);
-    //   delay(t);
-    //   tone(buzzer,523,t) ;
-    //   delay(t);
-    //   delay(1000);
-    // }
-    // else if (deltaMinBF <= rl)
-    // {
-    //   uint16_t Vl = map(rl - deltaMinBF, 0, deltaMaxBF - deltaMinBF, 2048, 4095);
-    //   uint16_t Vr = map(rl - deltaMinBF, 0, deltaMaxBF - deltaMinBF, 2048, 4095);
-    //   Wire.beginTransmission(DEVICE_ADDRESS60);
-    //   Wire.write((Vl>>8)&0x0F);
-    //   Wire.write(Vl);
-    //   Wire.endTransmission();
-    //   Wire.beginTransmission(DEVICE_ADDRESS61);
-    //   Wire.write((Vr>>8)&0x0F);
-    //   Wire.write(Vr);
-    //   Wire.endTransmission();
 
-    //   tone(buzzer, 523, t);
-    //   delay(t);
-    //   tone(buzzer,784,t) ;
-    //   delay(t);
-    // }
-    // else if (rl < -deltaMinBF)
-    // {
-    //   // uint16_t Vl = map(rl - deltaMinBF, -deltaMaxBF, deltaMaxBF - deltaMinBF, 833, 2048);
-    //   // uint16_t Vr = map(rl - deltaMinBF, -deltaMaxBF, deltaMaxBF - deltaMinBF, 833, 2048);
-    //   // Wire.beginTransmission(DEVICE_ADDRESS60);
-    //   // Wire.write((Vl>>8)&0x0F);
-    //   // Wire.write(Vl);
-    //   // Wire.endTransmission();
-    //   // Wire.beginTransmission(DEVICE_ADDRESS61);
-    //   // Wire.write((Vr>>8)&0x0F);
-    //   // Wire.write(Vr);
-    //   // Wire.endTransmission();
-    //   tone(buzzer,784,t) ;
-    //   delay(t);
-    //   tone(buzzer, 523, t);
-    //   delay(t);
-    // }
-    // // Serial.println(analogRead(rightAndLeft));
+    if (bf1 <= -deltaMinBF || deltaMinBF <= bf1) {
+      Vl = map(bf1, -deltaMaxBF, deltaMaxBF, 410, 4095);
+      Vr = map(bf1, -deltaMaxBF, deltaMaxBF, 410, 4095);
+      if (abs(rl) >= deltaMinRL && bf1 > 0){
+        if(rl > 0){
+          Vl -= (Vl - 2047) * (((float) map(abs(rl), deltaMinRL, deltaMaxRL, 10, 50)) / 100);
+        }else{
+          Vr -= (Vr - 2047) * (((float) map(abs(rl), deltaMinRL, deltaMaxRL, 10, 50)) / 100);
+        }
+      }
+      Vl = constrain(Vl, 410, 4095);
+      Vr = constrain(Vr, 410, 4095);
+    }
+    // Serial.print("d: ");
+    Serial.println((int)Vr - (int)Vl);
   }
-  digitalWrite(10, LOW);
-  digitalWrite(13, LOW);
-  uint16_t Vl = 2047;
-  uint16_t Vr = 2047;
+  else
+  {
+    digitalWrite(10, LOW);
+    digitalWrite(13, LOW);
+  }
+  // Serial.print("bf: ");
+  // Serial.print(bf);
+  // Serial.print(", rl: ");
+  // Serial.println(rl);
+
   Wire.beginTransmission(DEVICE_ADDRESS60);
   Wire.write((Vl>>8)&0x0F);
   Wire.write(Vl);
@@ -180,6 +141,4 @@ void loop() {
   Wire.write((Vr>>8)&0x0F);
   Wire.write(Vr);
   Wire.endTransmission();
-  // d = 64;
-  // s = 2048;
 }
