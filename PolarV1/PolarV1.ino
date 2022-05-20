@@ -88,53 +88,67 @@ void loop()
 
     if (radius >= deltaMinBF)
     {
-      Vl = map(radius, deltaMinBF, deltaMaxBF, 2500, 4095);
+      Vl = map(radius, deltaMinBF, deltaMaxBF, 2047, 4095);
       Vr = Vl;
-      if (abs(theta) <= 60)
+      if (abs(theta) <= 45)
       {
         if (theta >= 0)
         { //右折
-          Vr -= (Vr - 2500) * (((float)map(abs(theta), 0, 45, 0, 70)) / 100);
+          Vr -= (Vr - 2047) * (((float)map(abs(theta), 0, 60, 0, 100)) / 100);
         }
         else
         { //左折
-          Vl -= (Vl - 2500) * (((float)map(abs(theta), 0, 45, 0, 70)) / 100);
+          Vl -= (Vl - 2047) * (((float)map(abs(theta), 0, 60, 0, 100)) / 100);
         }
       }
-      // else if (60 < abs(theta) && abs(theta) < 120)
-      // {
-      // }
-      else if (abs(theta) >= 120)
+      else if (45 < abs(theta) && abs(theta) < 135)
+      {
+        if (theta >= 0)
+        {
+          // Vl = map(radius, deltaMinBF, deltaMaxBF, 2300, 3071);
+          Vl = 2350;
+          Vr = 4095 - Vl;
+          tone(buzzer, 1047, t);
+        }
+        else
+        {
+          // Vr = map(radius, deltaMinBF, deltaMaxBF, 2300, 3071);
+          Vr = 2350;
+          Vl = 4095 - Vr;
+          tone(buzzer, 1568, t);
+        }
+      }
+      else if (abs(theta) >= 135)
       { //後退
         Vl = map(Vl, 2047, 4095, 2047, 410);
         Vr = map(Vr, 2047, 4095, 2047, 410);
         if (millis() - startDelay >= 1000)
         {
-          startDelay = millis();
           tone(buzzer, 987, 500);
+          startDelay = millis();
         }
       }
-      else if (abs(bf) < deltaMinBF)
-      {
-        if (theta >= 0)
-        {
-          Vl = map(radius / 1.5, deltaMinBF, deltaMaxBF, 2500, 4095);
-          Vr = Vl - 2047;
-        }
-        else
-        {
-          Vr = map(radius / 1.5, deltaMinBF, deltaMaxBF, 2500, 4095);
-          Vl = Vr - 2047;
-        }
-      }
-      else
-      {
-        Vl = 2047;
-        Vr = 2047;
-      }
-      Vl = constrain(Vl, 410, 4095);
-      Vr = constrain(Vr, 410, 4095);
+      // else if (abs(bf) < deltaMinBF)
+      // {
+      //   if (theta >= 0)
+      //   {
+      //     Vl = map(radius / 1.5, deltaMinBF, deltaMaxBF, 2500, 4095);
+      //     Vr = Vl - 2047;
+      //   }
+      //   else
+      //   {
+      //     Vr = map(radius / 1.5, deltaMinBF, deltaMaxBF, 2500, 4095);
+      //     Vl = Vr - 2047;
+      //   }
+      // }
     }
+    else
+    {
+      Vl = 2047;
+      Vr = 2047;
+    }
+    Vl = constrain(Vl, 410, 4095);
+    Vr = constrain(Vr, 410, 4095);
   }
   else
   {
