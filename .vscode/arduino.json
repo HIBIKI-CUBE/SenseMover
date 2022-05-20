@@ -1,6 +1,0 @@
-{
-    "port": "/dev/tty.usbmodem21401",
-    "board": "arduino:avr:uno",
-    "sketch": "PolarV1/PolarV1.ino",
-    "programmer": "avrispmkii"
-}
