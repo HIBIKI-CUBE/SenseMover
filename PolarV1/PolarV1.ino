@@ -38,6 +38,7 @@ void setup()
   pinMode(button, INPUT);
   pinMode(13, OUTPUT);
   pinMode(10, OUTPUT);
+
   waitButtonUntil(HIGH);
   centerBF = analogRead(backAndForth);
   centerRL = analogRead(rightAndLeft);
@@ -45,20 +46,40 @@ void setup()
   delay(t);
   waitButtonUntil(LOW);
   delay(50);
-  waitButtonUntil(HIGH);
+
+    while (digitalRead(button) == LOW)
+  {
+    if (analogRead(backAndForth) <= centerBF || 1023 <= analogRead(backAndForth))
+    {
+      tone(buzzer, 1865, t);
+      delay(t);
+    }
+  }
   deltaMinBF = analogRead(backAndForth) - centerBF;
   deltaMinRL = analogRead(rightAndLeft) - centerRL;
   tone(buzzer, 1319, t);
   delay(t);
   waitButtonUntil(LOW);
   delay(50);
-  waitButtonUntil(HIGH);
+
+  while (digitalRead(button) == LOW)
+  {
+    if (analogRead(backAndForth) <= centerBF || 1023 <= analogRead(backAndForth))
+    {
+      tone(buzzer, 1865, t);
+      delay(t);
+    }
+  }
   deltaMaxRL = analogRead(rightAndLeft) - centerRL;
   deltaMaxBF = analogRead(backAndForth) - centerBF;
   tone(buzzer, 1568, t);
   delay(t);
   waitButtonUntil(LOW);
-  delay(100);
+
+  while (!(-deltaMinBF < analogRead(backAndForth) - centerBF && analogRead(backAndForth) - centerBF < deltaMinBF && -deltaMinRL < analogRead(rightAndLeft) - centerRL && analogRead(rightAndLeft) - centerRL < deltaMinRL))
+  {
+  }
+
   tone(buzzer, 1047, t);
   delay(t);
   tone(buzzer, 1319, t);
@@ -67,6 +88,11 @@ void setup()
 }
 
 unsigned long startDelay = 0;
+bool active = false;
+#define rcGain 0.3
+float rlRC = 2047;
+float bfRC = 2047;
+
 void loop()
 {
   uint16_t Vl = 2047;
@@ -75,51 +101,47 @@ void loop()
   int radius = 0;
   int theta = 0;
   int rl = 0;
+  bf = analogRead(backAndForth) - centerBF;
+  rl = analogRead(rightAndLeft) - centerRL;
+  // rlRC = rcGain * rlRC + (1 - rcGain) * (float)rl;
+  // bfRC = rcGain * bfRC + (1 - rcGain) * (float)bf;
+  // Serial.print(bf);
+  // Serial.print(", ");
+  // Serial.print(rl);
+  // Serial.print(", ");
+  // Serial.print(bfRC);
+  // Serial.print(", ");
+  // Serial.println(rlRC);
 
   if (digitalRead(button) == HIGH)
   {
+    active = !active;
+  }
+
+  if (active)
+  {
     digitalWrite(10, HIGH);
     digitalWrite(13, HIGH);
-
-    bf = analogRead(backAndForth) - centerBF;
-    rl = analogRead(rightAndLeft) - centerRL;
-    radius = sqrt(pow(analogRead(backAndForth) - centerBF, 2) + pow(analogRead(rightAndLeft) - centerRL, 2));
+    radius = sqrt(pow(bf, 2) + pow(rl, 2));
     theta = atan2(rl, bf) * 180.0 / PI;
 
     if (radius >= deltaMinBF)
     {
       Vl = map(radius, deltaMinBF, deltaMaxBF, 2047, 4095);
       Vr = Vl;
-      if (abs(theta) <= 45)
+      if (abs(theta) <= 135)
       {
         if (theta >= 0)
         { //右折
-          Vr -= (Vr - 2047) * (((float)map(abs(theta), 0, 60, 0, 100)) / 100);
+          Vr -= (Vr - 2047.5) * (((float)map(abs(constrain(theta, -90, 90)), 0, 45, 0, 100)) / 100);
         }
         else
         { //左折
-          Vl -= (Vl - 2047) * (((float)map(abs(theta), 0, 60, 0, 100)) / 100);
+          Vl -= (Vl - 2047.5) * (((float)map(abs(constrain(theta, -90, 90)), 0, 45, 0, 100)) / 100);
         }
       }
-      else if (45 < abs(theta) && abs(theta) < 135)
+      else
       {
-        if (theta >= 0)
-        {
-          // Vl = map(radius, deltaMinBF, deltaMaxBF, 2300, 3071);
-          Vl = 2350;
-          Vr = 4095 - Vl;
-          tone(buzzer, 1047, t);
-        }
-        else
-        {
-          // Vr = map(radius, deltaMinBF, deltaMaxBF, 2300, 3071);
-          Vr = 2350;
-          Vl = 4095 - Vr;
-          tone(buzzer, 1568, t);
-        }
-      }
-      else if (abs(theta) >= 135)
-      { //後退
         Vl = map(Vl, 2047, 4095, 2047, 410);
         Vr = map(Vr, 2047, 4095, 2047, 410);
         if (millis() - startDelay >= 1000)
@@ -128,24 +150,16 @@ void loop()
           startDelay = millis();
         }
       }
-      // else if (abs(bf) < deltaMinBF)
-      // {
-      //   if (theta >= 0)
-      //   {
-      //     Vl = map(radius / 1.5, deltaMinBF, deltaMaxBF, 2500, 4095);
-      //     Vr = Vl - 2047;
-      //   }
-      //   else
-      //   {
-      //     Vr = map(radius / 1.5, deltaMinBF, deltaMaxBF, 2500, 4095);
-      //     Vl = Vr - 2047;
-      //   }
-      // }
     }
     else
     {
       Vl = 2047;
       Vr = 2047;
+
+      if (millis() - startDelay >= 250)
+      {
+        startDelay = millis();
+      }
     }
     Vl = constrain(Vl, 410, 4095);
     Vr = constrain(Vr, 410, 4095);
@@ -154,9 +168,8 @@ void loop()
   {
     digitalWrite(10, LOW);
     digitalWrite(13, LOW);
+    waitButtonUntil(LOW);
   }
-  Serial.print("Vl: ");
-  Serial.println(Vl);
 
   Wire.beginTransmission(Left_Motor);
   Wire.write((Vl >> 8) & 0x0F);
