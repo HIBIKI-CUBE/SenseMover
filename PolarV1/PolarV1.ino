@@ -13,7 +13,7 @@ static const uint8_t t = 83;
 static const uint8_t buzzer = 12;
 static const uint8_t button = 8;
 static const uint8_t rightAndLeft = A0;
-static const uint8_t backAndForth = A1;
+static const uint8_t backAndForth = A2;
 static const uint8_t Left_Motor = 0x61;  //デバイスアドレス（スレーブ）
 static const uint8_t Right_Motor = 0x60; //
 int centerRL = 511;
@@ -38,16 +38,17 @@ void setup()
   pinMode(button, INPUT);
   pinMode(13, OUTPUT);
   pinMode(10, OUTPUT);
+  pinMode(7, INPUT);
 
   waitButtonUntil(HIGH);
   centerBF = analogRead(backAndForth);
-  centerRL = analogRead(rightAndLeft);
+  centerRL = analogRead(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33);
   tone(buzzer, 1047, t);
   delay(t);
   waitButtonUntil(LOW);
   delay(50);
 
-    while (digitalRead(button) == LOW)
+  while (digitalRead(button) == LOW)
   {
     if (analogRead(backAndForth) <= centerBF || 1023 <= analogRead(backAndForth))
     {
@@ -64,6 +65,15 @@ void setup()
 
   while (digitalRead(button) == LOW)
   {
+    Serial.print(1023);
+    Serial.print(", ");
+    Serial.print(0);
+    Serial.print(", ");
+    Serial.print(511);
+    Serial.print(", ");
+    Serial.print(analogRead(backAndForth));
+    Serial.print(", ");
+    Serial.println(analogRead(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33));
     if (analogRead(backAndForth) <= centerBF || 1023 <= analogRead(backAndForth))
     {
       tone(buzzer, 1865, t);
@@ -102,12 +112,16 @@ void loop()
   int theta = 0;
   int rl = 0;
   bf = analogRead(backAndForth) - centerBF;
-  rl = analogRead(rightAndLeft) - centerRL;
+  rl = analogRead(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33) - centerRL;
+
+  radius = sqrt(pow(bf, 2) + pow(rl, 2));
+  theta = atan2(rl, bf) * 180.0 / PI;
+
+  // Serial.print(radius);
+  // Serial.print(", ");
+  Serial.println(theta);
   // rlRC = rcGain * rlRC + (1 - rcGain) * (float)rl;
   // bfRC = rcGain * bfRC + (1 - rcGain) * (float)bf;
-  // Serial.print(bf);
-  // Serial.print(", ");
-  // Serial.print(rl);
   // Serial.print(", ");
   // Serial.print(bfRC);
   // Serial.print(", ");
@@ -116,60 +130,84 @@ void loop()
   if (digitalRead(button) == HIGH)
   {
     active = !active;
+    if (active)
+    {
+      digitalWrite(10, HIGH);
+      digitalWrite(13, HIGH);
+    }
+    else
+    {
+      digitalWrite(10, LOW);
+      digitalWrite(13, LOW);
+    }
+    tone(buzzer, 1047, t);
+    delay(t);
+    waitButtonUntil(LOW);
   }
 
   if (active)
   {
-    digitalWrite(10, HIGH);
-    digitalWrite(13, HIGH);
-    radius = sqrt(pow(bf, 2) + pow(rl, 2));
-    theta = atan2(rl, bf) * 180.0 / PI;
-
-    if (radius >= deltaMinBF)
+    if (digitalRead(7) == HIGH)
     {
-      Vl = map(radius, deltaMinBF, deltaMaxBF, 2047, 4095);
+      if (millis() - startDelay >= 1000)
+      {
+        tone(buzzer, 987, 500);
+        startDelay = millis();
+      }
+      Vl = 2600;
       Vr = Vl;
-      if (abs(theta) <= 135)
-      {
-        if (theta >= 0)
-        { //右折
-          Vr -= (Vr - 2047.5) * (((float)map(abs(constrain(theta, -90, 90)), 0, 45, 0, 100)) / 100);
-        }
-        else
-        { //左折
-          Vl -= (Vl - 2047.5) * (((float)map(abs(constrain(theta, -90, 90)), 0, 45, 0, 100)) / 100);
-        }
-      }
-      else
-      {
-        Vl = map(Vl, 2047, 4095, 2047, 410);
-        Vr = map(Vr, 2047, 4095, 2047, 410);
-        if (millis() - startDelay >= 1000)
-        {
-          tone(buzzer, 987, 500);
-          startDelay = millis();
-        }
-      }
     }
     else
     {
-      Vl = 2047;
-      Vr = 2047;
-
-      if (millis() - startDelay >= 250)
+      if (radius >= deltaMinBF)
       {
-        startDelay = millis();
+        Vl = map(radius, deltaMinBF, deltaMaxBF, 2047, 4095);
+        Vr = Vl;
+        if (abs(theta) <= 150)
+        {
+          if (theta >= 0)
+          { //右折
+            Vr -= (Vr - 2047.5) * (((float)map(abs(constrain(theta, -90, 90)), 0, 45, 0, 100)) / 100);
+          }
+          else
+          { //左折
+            Vl -= (Vl - 2047.5) * (((float)map(abs(constrain(theta, -90, 90)), 0, 45, 0, 100)) / 100);
+          }
+        }
+        else
+        {
+          Vl = map(Vl, 2047, 4095, 2047, 410);
+          Vr = map(Vr, 2047, 4095, 2047, 410);
+          if (millis() - startDelay >= 1000)
+          {
+            tone(buzzer, 987, 500);
+            startDelay = millis();
+          }
+        }
       }
     }
-    Vl = constrain(Vl, 410, 4095);
-    Vr = constrain(Vr, 410, 4095);
   }
   else
   {
-    digitalWrite(10, LOW);
-    digitalWrite(13, LOW);
-    waitButtonUntil(LOW);
+    Vl = 2047;
+    Vr = 2047;
+
+    if (millis() - startDelay >= 250)
+    {
+      startDelay = millis();
+    }
   }
+
+  // if (abs(Vl - 2047) <= 450)
+  // {
+  //   Vl = 2047;
+  // }
+  // if (abs(Vr - 2047) <= 450)
+  // {
+  //   Vr = 2047;
+  // }
+  Vl = constrain(Vl, 410, 4095);
+  Vr = constrain(Vr, 410, 4095);
 
   Wire.beginTransmission(Left_Motor);
   Wire.write((Vl >> 8) & 0x0F);
