@@ -31,12 +31,17 @@ int deltaMaxBF = 150;
 int deltaMinRL = 50;
 int deltaMinBF = 50;
 byte bleMode = 0;
+int radius = 0;
+int theta = 0;
 uint16_t bleDistance = 0; // 0 ~ 1000
 int bleAngle = 0;
 bool active = false;
 bool activeToggled = false;
 bool calibrated = false;
 unsigned long startDelay = 0;
+bool backSignRunnning = false;
+unsigned long backSignDelay = 0;
+unsigned long lastBleCommand = 0;
 
 void note(note_t note = NOTE_C, uint8_t octave = 7, uint32_t duration = t, uint8_t channel = buzzerChannel)
 {
@@ -55,6 +60,17 @@ void blink(int t = 20)
 }
 class MyServerCallbacks : public BLEServerCallbacks
 {
+  void onConnect(BLEServer *pServer, esp_ble_gatts_cb_param_t *param)
+  {
+    esp_ble_conn_update_params_t conn_params = {0};
+    memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
+    conn_params.latency = 0;
+    conn_params.max_int = 0x20; // max_int = 0x20*1.25ms = 40ms
+    conn_params.min_int = 0x06; // min_int = 0x10*1.25ms = 20ms
+    conn_params.timeout = 400;  // timeout = 400*10ms = 4000ms
+    // start sent the update connection parameters to the peer device.
+    esp_ble_gap_update_conn_params(&conn_params);
+  };
   void onDisconnect(BLEServer *pServer)
   {
     BLEDevice::startAdvertising();
@@ -93,15 +109,15 @@ void calibrate()
 
   while (digitalRead(button) == LOW)
   {
-    // Serial.print(1023);
-    // Serial.print(", ");
-    // Serial.print(0);
-    // Serial.print(", ");
-    // Serial.print(511);
-    // Serial.print(", ");
-    // Serial.print(analogRead(backAndForth));
-    // Serial.print(", ");
-    // Serial.println(analogRead(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33));
+    Serial.print(3150);
+    Serial.print(", ");
+    Serial.print(142);
+    Serial.print(", ");
+    Serial.print(1575);
+    Serial.print(", ");
+    Serial.print(analogReadMilliVolts(backAndForth));
+    Serial.print(", ");
+    Serial.println(analogReadMilliVolts(rightAndLeft) - abs((float)analogReadMilliVolts(backAndForth) - 1575) * 0.5);
     if (analogReadMilliVolts(backAndForth) <= centerBF || adMax <= analogReadMilliVolts(backAndForth))
     {
       note(NOTE_Bb);
@@ -117,63 +133,73 @@ void calibrate()
   }
   calibrated = true;
 }
-class MyCallbacks : public BLECharacteristicCallbacks
+class BleCallbacks : public BLECharacteristicCallbacks
 {
-  uint8_t bleWaitDuration = 50;
+public:
+  static const uint8_t bleWaitDuration = 30;
+
+private:
   void onWrite(BLECharacteristic *pCharacteristic)
   {
-    if (millis() - startDelay > bleWaitDuration)
+    std::string value = pCharacteristic->getValue();
+    if (value.length() > 0)
     {
-      std::string value = pCharacteristic->getValue();
-      if (value.length() > 0)
+      String raw = value.c_str();
+      JSONVar data = JSON.parse(raw);
+      if (data.hasOwnProperty("distance"))
       {
-        String raw = value.c_str();
-        JSONVar data = JSON.parse(raw);
-        if (data.hasOwnProperty("distance"))
-        {
-          bleDistance = (int)data["distance"];
-        }
-        if (data.hasOwnProperty("angle"))
-        {
-          bleAngle = (int)data["angle"];
-        }
-        if (data.hasOwnProperty("active"))
-        {
-          if (active != (bool)data["active"])
-          {
-            activeToggled = true;
-          }
-          active = (bool)data["active"];
-        }
-        if (data.hasOwnProperty("mode"))
-        {
-          blink();
-          bleMode = (int)data["mode"];
-        }
-        if (data.hasOwnProperty("action"))
-        {
-          blink();
-          if (JSON.stringify((const char *)data["action"]) == "\"calibrate\"")
-          {
-            calibrate();
-            note(NOTE_C, 7);
-            note(NOTE_E, 7);
-            note(NOTE_G, 7);
-          }
-          else
-          {
-            note(NOTE_Bb, 5);
-          }
-        }
-
-        startDelay = millis();
+        bleDistance = (int)data["distance"];
       }
+      if (data.hasOwnProperty("angle"))
+      {
+        bleAngle = (int)data["angle"];
+      }
+      if (data.hasOwnProperty("active"))
+      {
+        if (active != (bool)data["active"])
+        {
+          activeToggled = true;
+        }
+        active = (bool)data["active"];
+      }
+      if (data.hasOwnProperty("mode"))
+      {
+        blink();
+        bleMode = (int)data["mode"];
+      }
+      if (data.hasOwnProperty("action"))
+      {
+        blink();
+        if (JSON.stringify((const char *)data["action"]) == "\"calibrate\"")
+        {
+          calibrate();
+          note(NOTE_C, 7);
+          note(NOTE_E, 7);
+          note(NOTE_G, 7);
+        }
+        else
+        {
+          note(NOTE_Bb, 5);
+        }
+      }
+    }
+    lastBleCommand = millis();
+  }
+  void onRead(BLECharacteristic *pCharacteristic)
+  {
+    if(bleMode == 1){
+    pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
     }
   }
 };
 
 void setup()
 {
+#define BUZZER_FREQ 12000
+#define BUZZER_TIMERBIT 8
+  ledcSetup(buzzerChannel, BUZZER_FREQ, BUZZER_TIMERBIT);
+  ledcAttachPin(buzzerPin, buzzerChannel);
+
   pinMode(led, OUTPUT);
   pinMode(activeR, OUTPUT);
   pinMode(activeL, OUTPUT);
@@ -181,11 +207,6 @@ void setup()
   analogSetAttenuation(ADC_11db);
   pinMode(rightAndLeft, ANALOG);
   pinMode(backAndForth, ANALOG);
-
-#define BUZZER_FREQ 24000
-#define BUZZER_TIMERBIT 11
-  ledcSetup(buzzerChannel, BUZZER_FREQ, BUZZER_TIMERBIT);
-  ledcAttachPin(buzzerPin, buzzerChannel);
 
   digitalWrite(activeL, LOW);
   digitalWrite(activeR, LOW);
@@ -200,8 +221,8 @@ void setup()
   BLEService *pService = pServer->createService(SERVICE_UUID);
   BLECharacteristic *pCharacteristic = pService->createCharacteristic(
       CHARACTERISTIC_UUID,
-      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-  pCharacteristic->setCallbacks(new MyCallbacks());
+      BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE_NR);
+  pCharacteristic->setCallbacks(new BleCallbacks());
   pService->start();
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
@@ -227,8 +248,6 @@ void loop()
   uint16_t Vl = 128;
   uint16_t Vr = 128;
   int bf = 0;
-  int radius = 0;
-  int theta = 0;
   int rl = 0;
 
   switch (bleMode)
@@ -243,21 +262,26 @@ void loop()
     // rl = analogReadMilliVolts(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33) - centerRL;
     radius = sqrt(pow(bf, 2) + pow(rl, 2));
     theta = atan2(rl, bf) * 180.0 / PI;
-    if (!calibrated)
-    {
-      radius = 0;
-      theta = 0;
-    }
     break;
   }
 
   if (activeToggled)
   {
+    if (active)
+    {
+      digitalWrite(activeR, HIGH);
+      digitalWrite(activeL, HIGH);
+    }
+    else
+    {
+      digitalWrite(activeR, LOW);
+      digitalWrite(activeL, LOW);
+    }
     note(NOTE_C);
     activeToggled = false;
   }
 
-  if (active)
+  if (active && (((bleMode == 0 || bleMode == 2) && millis() - lastBleCommand <= BleCallbacks::bleWaitDuration * 2) || (bleMode == 1 && calibrated)))
   {
     if (radius >= (bleMode == 1 ? deltaMinBF : 50))
     {
@@ -295,11 +319,12 @@ void loop()
         {
           Vl -= (Vl - 127) * (((float)map(-theta, 120, 180, 100, 0)) / 100);
         }
-        if (millis() - startDelay >= 1000)
+        if (!backSignRunnning && millis() - backSignDelay >= 500)
         {
-          // ledcWriteNote(buzzerChannel, NOTE_B, 5);
-          blink();
-          startDelay = millis();
+          ledcWriteNote(buzzerChannel, NOTE_E, 5);
+          digitalWrite(led, HIGH);
+          backSignRunnning = true;
+          backSignDelay = millis();
         }
       }
     }
@@ -320,15 +345,11 @@ void loop()
   dacWrite(leftMotor, Vl);
   dacWrite(rightMotor, Vr);
 
-  if (active)
+  if (backSignRunnning && millis() - backSignDelay >= 500)
   {
-    digitalWrite(activeR, HIGH);
-    digitalWrite(activeL, HIGH);
-    blink();
-  }
-  else
-  {
-    digitalWrite(activeR, LOW);
-    digitalWrite(activeL, LOW);
+    ledcWriteTone(buzzerChannel, 0);
+    digitalWrite(led, LOW);
+    backSignRunnning = false;
+    backSignDelay = millis();
   }
 }
