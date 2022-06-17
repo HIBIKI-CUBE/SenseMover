@@ -42,6 +42,8 @@ unsigned long startDelay = 0;
 bool backSignRunnning = false;
 unsigned long backSignDelay = 0;
 unsigned long lastBleCommand = 0;
+unsigned long bleReadDelay = 0;
+BLECharacteristic *pCharacteristic;
 
 void note(note_t note = NOTE_C, uint8_t octave = 7, uint32_t duration = t, uint8_t channel = buzzerChannel)
 {
@@ -65,14 +67,73 @@ class MyServerCallbacks : public BLEServerCallbacks
     esp_ble_conn_update_params_t conn_params = {0};
     memcpy(conn_params.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
     conn_params.latency = 0;
-    conn_params.max_int = 0x20; // max_int = 0x20*1.25ms = 40ms
-    conn_params.min_int = 0x06; // min_int = 0x10*1.25ms = 20ms
+    conn_params.max_int = 0x14; // max_int = 0x14*1.25ms = 25ms
+    conn_params.min_int = 0xc;  // min_int = 0xc*1.25ms = 15ms
     conn_params.timeout = 400;  // timeout = 400*10ms = 4000ms
     // start sent the update connection parameters to the peer device.
     esp_ble_gap_update_conn_params(&conn_params);
+
+    // VULCAN Startup Sound
+    note(NOTE_D, 6, 27);
+    note(NOTE_A, 6, 27);
+    note(NOTE_D, 7, 27);
+    note(NOTE_A, 7, 27);
+    note(NOTE_D, 8, 27);
+
+    note(NOTE_Eb, 6, 27);
+    note(NOTE_Bb, 6, 27);
+    note(NOTE_Eb, 7, 27);
+    note(NOTE_Bb, 7, 27);
+    note(NOTE_Eb, 8, 27);
+
+    note(NOTE_E, 6, 27);
+    note(NOTE_B, 6, 27);
+    note(NOTE_E, 7, 27);
+    note(NOTE_B, 7, 27);
+    note(NOTE_E, 8, 27);
+
+    note(NOTE_F, 6, 27);
+    note(NOTE_C, 6, 27);
+    note(NOTE_F, 7, 27);
+    note(NOTE_C, 7, 27);
+    note(NOTE_F, 8, 27);
+
+    // Water crown
+    // note(NOTE_C, 7, 136);
+    // note(NOTE_G, 6, 136);
+    // note(NOTE_C, 7, 136);
+    // note(NOTE_E, 7, 136);
+    // note(NOTE_A, 7, 136 * 2);
+    // note(NOTE_G, 7, 136 * 2);
+    // note(NOTE_D, 7, 136);
+    // note(NOTE_F, 7, 136);
+    // note(NOTE_A, 7, 136);
+    // note(NOTE_C, 8, 136);
+    // note(NOTE_B, 7, 136);
+    // note(NOTE_G, 7, 136);
+    // note(NOTE_B, 7, 136);
+    // note(NOTE_D, 8, 136);
+    // for (uint8_t i = 0; i < 20; i++)
+    // {
+    //   note(NOTE_A, 7, 45);
+    //   note(NOTE_Cs, 8, 45);
+    // }
+
+    // ゼルダの伝説
+    // note(NOTE_G, 7, 136);
+    // note(NOTE_Fs, 7, 136);
+    // note(NOTE_Eb, 7, 136);
+    // note(NOTE_A, 7, 136);
+    // note(NOTE_Gs, 7, 136);
+    // note(NOTE_E, 7, 136);
+    // note(NOTE_Gs, 7, 136);
+    // note(NOTE_C, 7, 136 * 5);
   };
   void onDisconnect(BLEServer *pServer)
   {
+    note(NOTE_E, 7);
+    note(NOTE_D, 7);
+    note(NOTE_Bb, 7);
     BLEDevice::startAdvertising();
   }
 };
@@ -185,12 +246,13 @@ private:
     }
     lastBleCommand = millis();
   }
-  void onRead(BLECharacteristic *pCharacteristic)
-  {
-    if(bleMode == 1){
-    pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
-    }
-  }
+  // void onRead(BLECharacteristic *pCharacteristic)
+  // {
+  //   if (bleMode == 1)
+  //   {
+  //     pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
+  //   }
+  // }
 };
 
 void setup()
@@ -219,7 +281,7 @@ void setup()
   BLEServer *pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   BLEService *pService = pServer->createService(SERVICE_UUID);
-  BLECharacteristic *pCharacteristic = pService->createCharacteristic(
+  pCharacteristic = pService->createCharacteristic(
       CHARACTERISTIC_UUID,
       BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_WRITE_NR);
   pCharacteristic->setCallbacks(new BleCallbacks());
@@ -263,6 +325,12 @@ void loop()
     radius = sqrt(pow(bf, 2) + pow(rl, 2));
     theta = atan2(rl, bf) * 180.0 / PI;
     break;
+  }
+  if (bleMode == 1 && millis() - bleReadDelay >= 30)
+  {
+    pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
+    pCharacteristic->notify();
+    bleReadDelay = millis();
   }
 
   if (activeToggled)
