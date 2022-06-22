@@ -44,6 +44,15 @@ unsigned long backSignDelay = 0;
 unsigned long lastBleCommand = 0;
 unsigned long bleReadDelay = 0;
 BLECharacteristic *pCharacteristic;
+bool calibrating = false;
+enum CalibrationPhase
+{
+  CENTER,
+  MIN,
+  MAX,
+  FINISH
+};
+CalibrationPhase calibrationPhase = CENTER;
 
 void note(note_t note = NOTE_C, uint8_t octave = 7, uint32_t duration = t, uint8_t channel = buzzerChannel)
 {
@@ -79,19 +88,16 @@ class MyServerCallbacks : public BLEServerCallbacks
     note(NOTE_D, 7, 27);
     note(NOTE_A, 7, 27);
     note(NOTE_D, 8, 27);
-
     note(NOTE_Eb, 6, 27);
     note(NOTE_Bb, 6, 27);
     note(NOTE_Eb, 7, 27);
     note(NOTE_Bb, 7, 27);
     note(NOTE_Eb, 8, 27);
-
     note(NOTE_E, 6, 27);
     note(NOTE_B, 6, 27);
     note(NOTE_E, 7, 27);
     note(NOTE_B, 7, 27);
     note(NOTE_E, 8, 27);
-
     note(NOTE_F, 6, 27);
     note(NOTE_C, 6, 27);
     note(NOTE_F, 7, 27);
@@ -145,54 +151,109 @@ void waitButtonUntil(int v)
   }
 }
 
+void monitor()
+{
+  int bf = analogReadMilliVolts(backAndForth) - centerBF;
+  int rl = analogReadMilliVolts(rightAndLeft) - centerRL;
+  radius = sqrt(pow(bf, 2) + pow(rl, 2));
+  theta = atan2(rl, bf) * 180.0 / PI;
+}
+
+void nyancat()
+{
+  int q = 60 / 144 / 4 * 1000;
+  note(NOTE_Eb, 7, q);
+  note(NOTE_E, 7, q);
+  note(NOTE_Fs, 7, q);
+  delay(q);
+  note(NOTE_B, 7, q * 2);
+  note(NOTE_Eb, 7, q);
+  note(NOTE_E, 7, q);
+  note(NOTE_Fs, 7, q);
+  note(NOTE_B, 7, q);
+  note(NOTE_Cs, 8, q);
+  note(NOTE_Eb, 8, q);
+  note(NOTE_Cs, 8, q);
+  note(NOTE_Bb, 7, q);
+  note(NOTE_B, 7, q * 2);
+  note(NOTE_Fs, 7, q * 2);
+  note(NOTE_Eb, 7, q);
+}
+
 void calibrate()
 {
-  waitButtonUntil(HIGH);
-  centerBF = analogReadMilliVolts(backAndForth);
-  centerRL = analogReadMilliVolts(rightAndLeft);
-  // centerRL = analogRead(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33);
-  note(NOTE_C);
-  waitButtonUntil(LOW);
-  delay(50);
-
-  while (digitalRead(button) == LOW)
+  switch (calibrationPhase)
   {
-    if (analogReadMilliVolts(backAndForth) <= centerBF || adMax <= analogRead(backAndForth))
+  case CENTER:
+    centerBF = adCenter;
+    centerRL = adCenter;
+    if (digitalRead(button) == HIGH)
+    {
+      centerBF = analogReadMilliVolts(backAndForth);
+      centerRL = analogReadMilliVolts(rightAndLeft);
+      note(NOTE_C);
+      waitButtonUntil(LOW);
+      delay(50);
+      calibrationPhase = MIN;
+    }
+    if (analogReadMilliVolts(backAndForth) <= adMin || adMax <= analogReadMilliVolts(backAndForth))
     {
       note(NOTE_Bb);
     }
-  }
-  deltaMinBF = analogReadMilliVolts(backAndForth) - centerBF;
-  deltaMinRL = analogReadMilliVolts(rightAndLeft) - centerRL;
-  note(NOTE_E);
-  waitButtonUntil(LOW);
-  delay(50);
-
-  while (digitalRead(button) == LOW)
-  {
-    Serial.print(3150);
-    Serial.print(", ");
-    Serial.print(142);
-    Serial.print(", ");
-    Serial.print(1575);
-    Serial.print(", ");
-    Serial.print(analogReadMilliVolts(backAndForth));
-    Serial.print(", ");
-    Serial.println(analogReadMilliVolts(rightAndLeft) - abs((float)analogReadMilliVolts(backAndForth) - 1575) * 0.5);
+    break;
+  case MIN:
+    if (digitalRead(button) == HIGH)
+    {
+      deltaMinBF = analogReadMilliVolts(backAndForth) - centerBF;
+      deltaMinRL = analogReadMilliVolts(rightAndLeft) - centerRL;
+      note(NOTE_E);
+      waitButtonUntil(LOW);
+      delay(50);
+      calibrationPhase = MAX;
+    }
     if (analogReadMilliVolts(backAndForth) <= centerBF || adMax <= analogReadMilliVolts(backAndForth))
     {
       note(NOTE_Bb);
     }
+    break;
+  case MAX:
+    if (digitalRead(button) == HIGH)
+    {
+      deltaMaxBF = analogReadMilliVolts(backAndForth) - centerBF;
+      deltaMaxRL = analogReadMilliVolts(rightAndLeft) - centerRL;
+      note(NOTE_G);
+      waitButtonUntil(LOW);
+      calibrationPhase = FINISH;
+    }
+    if (analogReadMilliVolts(backAndForth) <= centerBF || adMax <= analogReadMilliVolts(backAndForth))
+    {
+      note(NOTE_Bb);
+    }
+    break;
+  case FINISH:
+    if (-deltaMinBF < analogReadMilliVolts(backAndForth) - centerBF && analogReadMilliVolts(backAndForth) - centerBF < deltaMinBF && -deltaMinRL < analogReadMilliVolts(rightAndLeft) - centerRL && analogReadMilliVolts(rightAndLeft) - centerRL < deltaMinRL)
+    {
+      note(NOTE_C, 7);
+      note(NOTE_E, 7);
+      note(NOTE_G, 7);
+      calibrating = false;
+      calibrated = true;
+      calibrationPhase = CENTER;
+    }
+    else
+    {
+      Serial.print(adMax);
+      Serial.print(", ");
+      Serial.print(adCenter);
+      Serial.print(", ");
+      Serial.print(adMin);
+      Serial.print(", ");
+      Serial.print(analogReadMilliVolts(backAndForth));
+      Serial.print(", ");
+      Serial.println(analogReadMilliVolts(rightAndLeft) - abs((float)analogReadMilliVolts(backAndForth) - 1575) * 0.5);
+    }
+    break;
   }
-  deltaMaxRL = analogReadMilliVolts(rightAndLeft) - centerRL;
-  deltaMaxBF = analogReadMilliVolts(backAndForth) - centerBF;
-  note(NOTE_G);
-  waitButtonUntil(LOW);
-
-  while (!(-deltaMinBF < analogReadMilliVolts(backAndForth) - centerBF && analogReadMilliVolts(backAndForth) - centerBF < deltaMinBF && -deltaMinRL < analogReadMilliVolts(rightAndLeft) - centerRL && analogReadMilliVolts(rightAndLeft) - centerRL < deltaMinRL))
-  {
-  }
-  calibrated = true;
 }
 class BleCallbacks : public BLECharacteristicCallbacks
 {
@@ -207,13 +268,13 @@ private:
     {
       String raw = value.c_str();
       JSONVar data = JSON.parse(raw);
-      if (data.hasOwnProperty("distance"))
+      if (data.hasOwnProperty("d"))
       {
-        bleDistance = (int)data["distance"];
+        bleDistance = (int)data["d"];
       }
-      if (data.hasOwnProperty("angle"))
+      if (data.hasOwnProperty("a"))
       {
-        bleAngle = (int)data["angle"];
+        bleAngle = (int)data["a"];
       }
       if (data.hasOwnProperty("active"))
       {
@@ -233,10 +294,7 @@ private:
         blink();
         if (JSON.stringify((const char *)data["action"]) == "\"calibrate\"")
         {
-          calibrate();
-          note(NOTE_C, 7);
-          note(NOTE_E, 7);
-          note(NOTE_G, 7);
+          calibrating = true;
         }
         else
         {
@@ -246,13 +304,6 @@ private:
     }
     lastBleCommand = millis();
   }
-  // void onRead(BLECharacteristic *pCharacteristic)
-  // {
-  //   if (bleMode == 1)
-  //   {
-  //     pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
-  //   }
-  // }
 };
 
 void setup()
@@ -297,7 +348,7 @@ void setup()
 
   if (bleMode == 1)
   {
-    calibrate();
+    calibrating = true;
   }
 
   note(NOTE_C, 7);
@@ -326,11 +377,15 @@ void loop()
     theta = atan2(rl, bf) * 180.0 / PI;
     break;
   }
-  if (bleMode == 1 && millis() - bleReadDelay >= 30)
+  if (bleMode == 1 && millis() - bleReadDelay >= 5)
   {
     pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
     pCharacteristic->notify();
     bleReadDelay = millis();
+  }
+  if (calibrating)
+  {
+    calibrate();
   }
 
   if (activeToggled)
@@ -339,13 +394,16 @@ void loop()
     {
       digitalWrite(activeR, HIGH);
       digitalWrite(activeL, HIGH);
+      note(NOTE_C);
+      note(NOTE_G);
     }
     else
     {
       digitalWrite(activeR, LOW);
       digitalWrite(activeL, LOW);
+      note(NOTE_E);
+      note(NOTE_C);
     }
-    note(NOTE_C);
     activeToggled = false;
   }
 
