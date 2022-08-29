@@ -133,7 +133,6 @@ void BluetoothSetup()
   pAdvertising->setMinPreferred(0x12);
   BLEDevice::startAdvertising();
   blink();
-  Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
 
 #endif
