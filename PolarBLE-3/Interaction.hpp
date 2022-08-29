@@ -4,8 +4,16 @@
 #include <Arduino.h>
 
 static const uint8_t led = 27;
+static const uint8_t button = 13;
 static const uint8_t buzzerPin = 23;
 static const uint8_t buzzerChannel = 0;
+
+void waitButtonUntil(int v)
+{
+  while (digitalRead(button) != v)
+  {
+  }
+}
 
 void setupInteraction(){
 #define BUZZER_FREQ 12000
