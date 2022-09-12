@@ -45,9 +45,6 @@ void loop()
 {
   uint16_t Vl = 128;
   uint16_t Vr = 128;
-  int bf = 0;
-  int rl = 0;
-
   switch (bleMode)
   {
   case 0:
@@ -154,6 +151,7 @@ void loop()
 
   dacWrite(leftMotor, Vl);
   dacWrite(rightMotor, Vr);
+  // note(NOTE_E, 4);
 
   if (backSignRunning && millis() - backSignDelay >= 500)
   {
