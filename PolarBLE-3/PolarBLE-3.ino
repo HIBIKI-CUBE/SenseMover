@@ -11,7 +11,10 @@ static const uint8_t rightAndLeft = 34;
 static const uint8_t backAndForth = 35;
 int radius = 0;
 int theta = 0;
-unsigned long startDelay = 0;
+float vLeft = 128;
+float vRight = 128;
+float accel = 256 / 300 * 30 / 1000; //rpm / ms
+unsigned long lastTime = 0;
 bool backSignRunning = false;
 unsigned long backSignDelay = 0;
 
@@ -43,8 +46,8 @@ void setup()
 
 void loop()
 {
-  uint16_t Vl = 128;
-  uint16_t Vr = 128;
+  uint8_t vlTarget = 128;
+  uint8_t vrTarget = 128;
   switch (bleMode)
   {
   case 0:
@@ -95,36 +98,36 @@ void loop()
       switch (bleMode)
       {
       case 0:
-        Vl = map(radius, 0, 1000, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
-        Vr = Vl;
+        vlTarget = map(radius, 0, 1000, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
+        vrTarget = vlTarget;
         break;
       case 1:
-        Vl = map(radius, centerBF, deltaMaxBF, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
-        Vr = Vl;
+        vlTarget = map(radius, centerBF, deltaMaxBF, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
+        vrTarget = vlTarget;
         break;
       }
       if (abs(theta) <= 120)
       {
         if (theta >= 0)
         { //右折
-          Vr -= (Vr - 127.5) * (((float)map((theta >= 60 ? 90 : theta), 0, 60, 0, 100)) / 100);
+          vrTarget -= (vrTarget - 127.5) * (((float)map((theta >= 60 ? 90 : theta), 0, 60, 0, 100)) / 100);
         }
         else
         { //左折
-          Vl -= (Vl - 127.5) * (((float)map((theta <= -60 ? 90 : -theta), 0, 60, 0, 100)) / 100);
+          vlTarget -= (vlTarget - 127.5) * (((float)map((theta <= -60 ? 90 : -theta), 0, 60, 0, 100)) / 100);
         }
       }
       else
       {
-        Vl = map(Vl, 127, 255, 127, 25);
-        Vr = map(Vr, 127, 255, 127, 25);
+        vlTarget = map(vlTarget, 127, 255, 127, 25);
+        vrTarget = map(vrTarget, 127, 255, 127, 25);
         if (theta > 0)
         {
-          Vr -= (Vr - 127) * (((float)map(theta, 120, 180, 100, 0)) / 100);
+          vrTarget -= (vrTarget - 127) * (((float)map(theta, 120, 180, 100, 0)) / 100);
         }
         else
         {
-          Vl -= (Vl - 127) * (((float)map(-theta, 120, 180, 100, 0)) / 100);
+          vlTarget -= (vlTarget - 127) * (((float)map(-theta, 120, 180, 100, 0)) / 100);
         }
         if (!backSignRunning && millis() - backSignDelay >= 500)
         {
@@ -138,19 +141,27 @@ void loop()
   }
   else
   {
-    Vl = 127;
-    Vr = 127;
-
-    if (millis() - startDelay >= 250)
-    {
-      startDelay = millis();
-    }
+    vlTarget = 127;
+    vrTarget = 127;
   }
-  Vl = constrain(Vl, 25, 255);
-  Vr = constrain(Vr, 25, 255);
 
-  dacWrite(leftMotor, Vl);
-  dacWrite(rightMotor, Vr);
+  vlTarget = constrain(vlTarget, 25, 255);
+  vrTarget = constrain(vrTarget, 25, 255);
+
+  if(vlTarget > vLeft){
+    vLeft += accel * (millis() - lastTime);
+  }else if(vlTarget < vLeft){
+    vLeft -= accel * (millis() - lastTime);
+  }
+
+  if(vrTarget > vRight){
+    vRight += accel * (millis() - lastTime);
+  }else if(vrTarget < vRight){
+    vRight -= accel * (millis() - lastTime);
+  }
+
+  dacWrite(leftMotor, vLeft);
+  dacWrite(rightMotor, vRight);
   // note(NOTE_E, 4);
 
   if (backSignRunning && millis() - backSignDelay >= 500)
@@ -160,4 +171,6 @@ void loop()
     backSignRunning = false;
     backSignDelay = millis();
   }
+
+  lastTime = millis();
 }
