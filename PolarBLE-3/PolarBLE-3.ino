@@ -2,6 +2,7 @@
 #include "./Interaction.hpp"
 #include "./Bluetooth.hpp"
 #include "./LoadCell.hpp"
+// #include "./SuperSonic.hpp"
 
 static const uint8_t activeR = 32;
 static const uint8_t activeL = 33;
@@ -11,12 +12,14 @@ static const uint8_t rightAndLeft = 34;
 static const uint8_t backAndForth = 35;
 int radius = 0;
 int theta = 0;
-float vLeft = 128;
-float vRight = 128;
-float accel = 256 / 300 * 30 / 1000; //rpm / ms
+float vLeft = 127;
+float vRight = 127;
+static const float accelDefault = 0.0512; // 50 rpm / ms | 256 / 300 * 30 / 1000
+float accel = accelDefault;
 unsigned long lastTime = 0;
 bool backSignRunning = false;
 unsigned long backSignDelay = 0;
+bool isEmergency = false;
 
 void setup()
 {
@@ -46,8 +49,8 @@ void setup()
 
 void loop()
 {
-  uint8_t vlTarget = 128;
-  uint8_t vrTarget = 128;
+  uint8_t vlTarget = 127;
+  uint8_t vrTarget = 127;
   switch (bleMode)
   {
   case 0:
@@ -87,6 +90,8 @@ void loop()
       digitalWrite(activeL, LOW);
       note(NOTE_E);
       note(NOTE_C);
+      isEmergency = false;
+      accel = accelDefault;
     }
     activeToggled = false;
   }
@@ -145,24 +150,61 @@ void loop()
     vrTarget = 127;
   }
 
-  vlTarget = constrain(vlTarget, 25, 255);
-  vrTarget = constrain(vrTarget, 25, 255);
-
-  if(vlTarget > vLeft){
-    vLeft += accel * (millis() - lastTime);
-  }else if(vlTarget < vLeft){
-    vLeft -= accel * (millis() - lastTime);
+  if (active && (digitalRead(button) == HIGH || isEmergency))
+  {
+    accel = 0.427;
+    vlTarget = 127;
+    vrTarget = 127;
+    if (digitalRead(button) == HIGH)
+    {
+      note(NOTE_Bb);
+    }
+    isEmergency = true;
   }
 
-  if(vrTarget > vRight){
-    vRight += accel * (millis() - lastTime);
-  }else if(vrTarget < vRight){
-    vRight -= accel * (millis() - lastTime);
+  uint8_t elapsed = millis() - lastTime;
+
+  if (elapsed >= 10)
+  {
+
+    if (vlTarget > vLeft)
+    {
+      vLeft += accel * elapsed;
+    }
+    else if (vlTarget < vLeft)
+    {
+      vLeft -= accel * elapsed;
+    }
+
+    if (vrTarget > vRight)
+    {
+      vRight += accel * elapsed;
+    }
+    else if (vrTarget < vRight)
+    {
+      vRight -= accel * elapsed;
+    }
+
+    lastTime = millis();
   }
+
+  if (isEmergency)
+  {
+    if (121 < vLeft && vLeft < 133)
+    {
+      vLeft = 127;
+    }
+    if (121 < vRight && vRight < 133)
+    {
+      vRight = 127;
+    }
+  }
+
+  vLeft = constrain(vLeft, 25, 255);
+  vRight = constrain(vRight, 25, 255);
 
   dacWrite(leftMotor, vLeft);
   dacWrite(rightMotor, vRight);
-  // note(NOTE_E, 4);
 
   if (backSignRunning && millis() - backSignDelay >= 500)
   {
@@ -171,6 +213,4 @@ void loop()
     backSignRunning = false;
     backSignDelay = millis();
   }
-
-  lastTime = millis();
 }
