@@ -2,7 +2,7 @@
 #include "./Interaction.hpp"
 #include "./Bluetooth.hpp"
 #include "./LoadCell.hpp"
-// #include "./SuperSonic.hpp"
+#include "./SuperSonic.hpp"
 
 static const uint8_t activeR = 32;
 static const uint8_t activeL = 33;
@@ -24,6 +24,7 @@ bool isEmergency = false;
 void setup()
 {
   setupInteraction();
+  setupSuperSonic();
   pinMode(activeR, OUTPUT);
   pinMode(activeL, OUTPUT);
 
@@ -150,7 +151,9 @@ void loop()
     vrTarget = 127;
   }
 
-  if (active && (digitalRead(button) == HIGH || isEmergency))
+  int sonicResult = sonic();
+  // int sonicResult = 0;
+  if (active && (digitalRead(button) == HIGH || isEmergency || sonicResult == 2))
   {
     accel = 0.427;
     vlTarget = 127;
