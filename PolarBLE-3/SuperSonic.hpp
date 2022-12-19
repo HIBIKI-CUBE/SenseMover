@@ -17,6 +17,8 @@ namespace
   float distance = 400;
   int stopSignals = 0;
   int warnSignals = 0;
+  unsigned long lastStop = 0;
+  unsigned long lastWarn = 0;
   // float speeds[10];
   // int index = 0;
 
@@ -43,8 +45,11 @@ int sonic()
     lastDistance = distance;
     float elapsed = millis() - lastSonic;
     elapsed = elapsed == 0 ? 1 : elapsed;
-    distance = pulseIn(PIN_ECHO, HIGH) / 58.0;
-    Serial.println(distance);
+    distance = pulseIn(PIN_ECHO, HIGH, 8700) / 58.0;
+    // Serial.println(distance);
+    if(distance == 0){
+      return 0;
+    }
     speeds.push_back((lastDistance - distance) / elapsed);
   } while (speeds.size() < 10);
   for (int i = 0; i < 10; i++)
@@ -55,7 +60,9 @@ int sonic()
   speeds.pop_back();
   lastSonic = millis();
 
-  if (distance - speed * 1600 <= 15)
+  Serial.println(speed);
+
+  if (distance - speed * 2500 <= 60 && speed > 0)
   {
     if (warnSignals > 10)
     {
@@ -72,12 +79,12 @@ int sonic()
     warnSignals = 0;
   }
 
-  if (distance - speed * 600 <= 15)
+  if (distance - speed * 600 <= 60 && speed > 0.001)
   {
     if (stopSignals > 10)
     {
       result = 2;
-      note(NOTE_Bb);
+      note(NOTE_C, 8);
     }
     else
     {
