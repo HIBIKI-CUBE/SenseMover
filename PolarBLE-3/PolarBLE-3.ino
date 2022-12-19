@@ -2,14 +2,11 @@
 #include "./Interaction.hpp"
 #include "./Bluetooth.hpp"
 #include "./LoadCell.hpp"
-#include "./SuperSonic.hpp"
 
 static const uint8_t activeR = 32;
 static const uint8_t activeL = 33;
 static const uint8_t rightMotor = 25;
 static const uint8_t leftMotor = 26;
-static const uint8_t rightAndLeft = 34;
-static const uint8_t backAndForth = 35;
 int radius = 0;
 int theta = 0;
 float vLeft = 127;
@@ -24,7 +21,6 @@ bool isEmergency = false;
 void setup()
 {
   setupInteraction();
-  setupSuperSonic();
   pinMode(activeR, OUTPUT);
   pinMode(activeL, OUTPUT);
 
@@ -138,7 +134,6 @@ void loop()
         if (!backSignRunning && millis() - backSignDelay >= 500)
         {
           ledcWriteNote(buzzerChannel, NOTE_E, 5);
-          digitalWrite(led, HIGH);
           backSignRunning = true;
           backSignDelay = millis();
         }
@@ -151,9 +146,7 @@ void loop()
     vrTarget = 127;
   }
 
-  int sonicResult = sonic();
-  // int sonicResult = 0;
-  if (active && (digitalRead(button) == HIGH || isEmergency || sonicResult == 2))
+  if (active && (digitalRead(button) == HIGH || isEmergency))
   {
     accel = 0.427;
     vlTarget = 127;
@@ -193,14 +186,8 @@ void loop()
 
   if (isEmergency)
   {
-    if (121 < vLeft && vLeft < 133)
-    {
-      vLeft = 127;
-    }
-    if (121 < vRight && vRight < 133)
-    {
-      vRight = 127;
-    }
+    vLeft = 127;
+    vRight = 127;
   }
 
   vLeft = constrain(vLeft, 25, 255);
@@ -212,7 +199,6 @@ void loop()
   if (backSignRunning && millis() - backSignDelay >= 500)
   {
     ledcWriteTone(buzzerChannel, 0);
-    digitalWrite(led, LOW);
     backSignRunning = false;
     backSignDelay = millis();
   }

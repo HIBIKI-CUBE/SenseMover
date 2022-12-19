@@ -12,11 +12,11 @@
 
 #define LF_DAT 21
 #define LF_CLK 22
-#define LB_DAT 16
-#define LB_CLK 17
+#define LB_DAT 14
+#define LB_CLK 27
 #define RF_DAT 18
 #define RF_CLK 19
-#define RB_DAT 2
+#define RB_DAT 5
 #define RB_CLK 4
 
 #define CELL_COUNT 4
@@ -34,7 +34,7 @@ struct CoG
 
 byte dataPins[] = {LF_DAT, LB_DAT, RF_DAT, RB_DAT};
 byte clockPins[] = {LF_CLK, LB_CLK, RF_CLK, RB_CLK};
-byte invertData[] = {true, false, true, false};
+byte invertData[] = {true, true, false, false};
 
 std::deque<dataSet> offsetsBuffer;
 std::deque<dataSet> weightsBuffer;
@@ -92,7 +92,7 @@ void putWeightsTo(float *weights)
           delayMicroseconds(1);
           digitalWrite(clockPins[cell], LOW);
           delayMicroseconds(1);
-          if (cell < 24)
+          if (i < 24)
           {
             data = (data << 1) | (digitalRead(dataPins[cell]));
           }
@@ -133,7 +133,8 @@ CoG getCoG()
 {
   struct CoG result;
   float cellRawData[CELL_COUNT];
-  do{
+  do
+  {
     struct dataSet weights;
     putWeightsTo(weights.data);
     weightsBuffer.push_back(weights);
@@ -145,9 +146,12 @@ CoG getCoG()
     byte excludeIndex = 0;
     for (byte i = 0; i < weightsBuffer.size(); i++)
     {
-      if(invertData[cell]){
+      if (invertData[cell])
+      {
         excludeIndex = weightsBuffer[i].data[cell] < weightsBuffer[excludeIndex].data[cell] ? i : excludeIndex;
-      }else{
+      }
+      else
+      {
         excludeIndex = weightsBuffer[i].data[cell] > weightsBuffer[excludeIndex].data[cell] ? i : excludeIndex;
       }
       ave += weightsBuffer[i].data[cell];
@@ -162,7 +166,6 @@ CoG getCoG()
   result.rl = ((cellRawData[2] + cellRawData[3]) / 2) - ((cellRawData[0] + cellRawData[1]) / 2) - centerRL;
   return result;
 }
-
 
 enum CalibrationPhase
 {
