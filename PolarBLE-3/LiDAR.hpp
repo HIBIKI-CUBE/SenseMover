@@ -3,11 +3,14 @@ float angleCorrect(float distance, float angle)
   return angle + (distance < 1 ? 0 : (1 / (0.00082 * distance - 0.002) - 8));
 }
 
-void setupLiDAR(){
+void setupLiDAR()
+{
   Serial2.begin(115200);
 }
 
-float getDistance(){
+float getDistance()
+{
+  float result = 1000;
   if (Serial2.available())
   {
     uint8_t packet[250] = {};
@@ -26,13 +29,12 @@ float getDistance(){
       {
         float distance = (packet[i + 1] << 8 | packet[i]) / 4;
         float angle = startAngle + (angleDiff / dataCount) * ((i - 10) / 2);
-        if (178 <= angle && angle <= 182)
+        if (135 <= angle && angle <= 225 && distance > 0)
         {
-          return distance;
+          result = min((float) (distance * sin((angle - 90) * PI / 180.0)), result);
         }
       }
     }
   }
-  return 0;
+  return result;
 }
-

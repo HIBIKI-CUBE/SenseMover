@@ -148,7 +148,8 @@ void loop()
     vrTarget = 127;
   }
   float distance = getDistance();
-  if (active && (digitalRead(button) == HIGH || isEmergency || (distance != 0 && distance <= 200)))
+  Serial.println(distance);
+  if (active && (digitalRead(button) == HIGH || isEmergency || (distance != 0 && distance <= 250)))
   {
     accel = 0.427;
     vlTarget = 127;
