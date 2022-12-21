@@ -2,6 +2,7 @@
 #include "./Interaction.hpp"
 #include "./Bluetooth.hpp"
 #include "./LoadCell.hpp"
+#include "./LiDAR.hpp"
 
 static const uint8_t activeR = 32;
 static const uint8_t activeL = 33;
@@ -33,6 +34,7 @@ void setup()
 
   BluetoothSetup();
   setupLoadCell();
+  setupLiDAR();
 
   if (bleMode == 1)
   {
@@ -145,8 +147,8 @@ void loop()
     vlTarget = 127;
     vrTarget = 127;
   }
-
-  if (active && (digitalRead(button) == HIGH || isEmergency))
+  float distance = getDistance();
+  if (active && (digitalRead(button) == HIGH || isEmergency || (distance != 0 && distance <= 200)))
   {
     accel = 0.427;
     vlTarget = 127;
