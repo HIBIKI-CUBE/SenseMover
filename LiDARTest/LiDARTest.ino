@@ -25,7 +25,7 @@ void loop()
 
     uint8_t packet[331] = {};
     Serial2.read(packet, sizeof(packet));
-    for (int i = 0; i < sizeof; i++)
+    for (int i = 0; i < sizeof(packet); i++)
     {
       Serial.print(packet[i], HEX);
       Serial.print(", ");
