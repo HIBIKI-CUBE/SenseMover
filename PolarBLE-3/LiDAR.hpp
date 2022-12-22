@@ -8,10 +8,31 @@ void setupLiDAR()
   Serial2.begin(115200);
 }
 
-float getDistance()
+enum safetyStatus
 {
-  float result = 1000;
-  if (Serial2.available())
+  safe,
+  caution,
+  stop,
+  unknown
+};
+
+const uint8_t tireRadius = 100;
+const uint8_t maxRPM = 150;
+const uint16_t width = 560;
+const uint16_t treadWidth = 408;
+const uint16_t wheel2LiDAR = 645;
+
+unsigned long lastLiDAR = 0;
+
+float v2speed(int voltage)
+{
+  return (voltage - 127.0) / 128 * maxRPM * (2 * PI / 60) * tireRadius;
+}
+
+safetyStatus LiDAR(int vLeft, int vRight, int cautionDistance, int stopDistance)
+{
+  float seconds = (millis() - lastLiDAR) / 1000;
+  if (Serial2.available() && !(vLeft == 127 && vRight == 127))
   {
     uint8_t packet[250] = {};
     Serial2.read(packet, sizeof(packet));
@@ -25,16 +46,38 @@ float getDistance()
       float dl = (packet[9 + dataCount * 2] << 8 | packet[8 + dataCount * 2]) / 4;
       float endAngle = angleCorrect(dl, al);
       float angleDiff = startAngle < endAngle ? endAngle - startAngle : 360 - startAngle + endAngle;
+
+      float dTheta = (v2speed(vRight) - v2speed(vLeft)) / treadWidth * seconds / 2;
+      float travel = (v2speed(vRight) + v2speed(vLeft)) / 2 * seconds;
+      float dx = travel * cos(dTheta);
+      float dy = travel * sin(dTheta);
       for (unsigned int i = 10; i < dataCount * 2 + 10; i += 2)
       {
         float distance = (packet[i + 1] << 8 | packet[i]) / 4;
         float angle = startAngle + (angleDiff / dataCount) * ((i - 10) / 2);
-        if (135 <= angle && angle <= 225 && distance > 0)
+        if (distance > 0 && 80 <= angle && angle <= 280)
         {
-          result = min((float) (distance * sin((angle - 90) * PI / 180.0)), result);
+          float x = distance * cos((angle - 90) * PI / 180.0) - dx;
+          float y = distance * sin((angle - 90) * PI / 180.0) - dy;
+
+          // float pointRadius = sqrt(sq(pointY) + sq(pointX));
+          // float pointAngle = acos((distance * cos((angle - 90) * PI / 180.0)) / pointRadius) / PI * 180;
+          if (-width / 2 - stopDistance <= x && x <= width / 2 + stopDistance && y < stopDistance)
+          {
+            return stop;
+          }
+          if (-width / 2 - cautionDistance <= x && x <= width / 2 + cautionDistance && y < cautionDistance)
+          {
+            return caution;
+          }
         }
       }
     }
+    lastLiDAR = millis();
   }
-  return result;
+  else
+  {
+    return unknown;
+  }
+  return safe;
 }

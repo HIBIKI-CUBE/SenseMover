@@ -18,6 +18,8 @@ unsigned long lastTime = 0;
 bool backSignRunning = false;
 unsigned long backSignDelay = 0;
 bool isEmergency = false;
+unsigned long lastEmergency = 0;
+unsigned long lastUnlock = 0;
 
 void setup()
 {
@@ -113,11 +115,11 @@ void loop()
       if (abs(theta) <= 120)
       {
         if (theta >= 0)
-        { //右折
+        { // 右折
           vrTarget -= (vrTarget - 127.5) * (((float)map((theta >= 60 ? 90 : theta), 0, 60, 0, 100)) / 100);
         }
         else
-        { //左折
+        { // 左折
           vlTarget -= (vlTarget - 127.5) * (((float)map((theta <= -60 ? 90 : -theta), 0, 60, 0, 100)) / 100);
         }
       }
@@ -147,21 +149,32 @@ void loop()
     vlTarget = 127;
     vrTarget = 127;
   }
-  float distance = getDistance();
-  Serial.println(distance);
-  if (active && (digitalRead(button) == HIGH || isEmergency || (distance != 0 && distance <= 250)))
-  {
-    accel = 0.427;
-    vlTarget = 127;
-    vrTarget = 127;
-    if (digitalRead(button) == HIGH)
-    {
-      note(NOTE_Bb);
-    }
-    isEmergency = true;
-  }
-
   uint8_t elapsed = millis() - lastTime;
+
+  int safety = LiDAR(vLeft, vRight, 250, 180);
+  if (millis() - lastEmergency > 1000 && isEmergency && !(vlTarget == 127 && vrTarget == 127))
+  {
+    isEmergency = false;
+    lastUnlock = millis();
+    accel = accelDefault;
+  }
+  if (active && (digitalRead(button) == HIGH || isEmergency || safety == caution || safety == stop) && millis() - lastUnlock >= 2000)
+  {
+    if (safety == caution)
+    {
+      note(NOTE_Gs);
+    }
+
+    if (digitalRead(button) == HIGH || safety == stop)
+    {
+      isEmergency = true;
+      lastEmergency = millis();
+      note(NOTE_Bb);
+      accel = 0.427;
+      vlTarget = 127;
+      vrTarget = 127;
+    }
+  }
 
   if (elapsed >= 10)
   {
