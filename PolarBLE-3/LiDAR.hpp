@@ -25,8 +25,8 @@ const uint16_t wheel2LiDAR = 645;
 unsigned long lastLiDAR = 0;
 
 float v2speed(int voltage)
-{
-  return (voltage - 127.0) / 128 * maxRPM * (2 * PI / 60) * tireRadius;
+{ // mm/s
+  return (voltage - 127.0) / 128 * rpmMax * 2 * PI * tireRadius / 60;
 }
 
 safetyStatus LiDAR(int vLeft, int vRight, int cautionDistance, int stopDistance)
@@ -47,10 +47,12 @@ safetyStatus LiDAR(int vLeft, int vRight, int cautionDistance, int stopDistance)
       float endAngle = angleCorrect(dl, al);
       float angleDiff = startAngle < endAngle ? endAngle - startAngle : 360 - startAngle + endAngle;
 
-      float dTheta = (v2speed(vRight) - v2speed(vLeft)) / treadWidth * seconds / 2;
-      float travel = (v2speed(vRight) + v2speed(vLeft)) / 2 * seconds;
-      float dx = travel * cos(dTheta);
-      float dy = travel * sin(dTheta);
+      float theta = (v2speed(vLeft) - v2speed(vRight)) / treadWidth * seconds;
+      float travel = (v2speed(vLeft) + v2speed(vRight)) / 2 * seconds;
+      float dx = travel * sin(theta);
+      float dy = travel * cos(theta);
+      float dxL = dx + wheel2LiDAR * sin(theta);
+      float dyL = -wheel2LiDAR + dy + wheel2LiDAR * cos(theta);
       for (unsigned int i = 10; i < dataCount * 2 + 10; i += 2)
       {
         float distance = (packet[i + 1] << 8 | packet[i]) / 4;
