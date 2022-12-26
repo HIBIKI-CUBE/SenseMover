@@ -150,25 +150,23 @@ void loop()
     vrTarget = 127;
   }
   uint8_t elapsed = millis() - lastTime;
-
-  int safety = LiDAR(vLeft, vRight, 250, 180);
-  if (millis() - lastEmergency > 1000 && isEmergency && !(vlTarget == 127 && vrTarget == 127))
+  struct resultLiDAR safety = LiDAR(vlTarget, vrTarget, 350, 150);
+  vlTarget = safety.vLeft;
+  vrTarget = safety.vRight;
+  if (active && (digitalRead(button) == HIGH || isEmergency || safety.status == caution || safety.status == stop))
   {
-    isEmergency = false;
-    lastUnlock = millis();
-    accel = accelDefault;
-  }
-  if (active && (digitalRead(button) == HIGH || isEmergency || safety == caution || safety == stop) && millis() - lastUnlock >= 2000)
-  {
-    if (safety == caution)
+    if (safety.status == caution)
     {
       note(NOTE_Gs);
     }
+    if (safety.status == stop)
+    {
+      note(NOTE_Bb);
+    }
 
-    if (digitalRead(button) == HIGH || safety == stop)
+    if (digitalRead(button) == HIGH || (safety.status == stop && false) )
     {
       isEmergency = true;
-      lastEmergency = millis();
       note(NOTE_Bb);
       accel = 0.427;
       vlTarget = 127;
