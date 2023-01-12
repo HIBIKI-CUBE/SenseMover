@@ -50,8 +50,8 @@ void setup()
 
 void loop()
 {
-  uint8_t vlTarget = 127;
-  uint8_t vrTarget = 127;
+  int vlTarget = 127;
+  int vrTarget = 127;
   switch (bleMode)
   {
   case 0:
@@ -150,7 +150,7 @@ void loop()
     vrTarget = 127;
   }
   uint8_t elapsed = millis() - lastTime;
-  struct resultLiDAR safety = LiDAR(vlTarget, vrTarget, 350, 150);
+  struct resultLiDAR safety = LiDAR(vlTarget, vrTarget, 1, 350, 150);
   vlTarget = safety.vLeft;
   vrTarget = safety.vRight;
   if (active && (digitalRead(button) == HIGH || isEmergency || safety.status == caution || safety.status == stop))

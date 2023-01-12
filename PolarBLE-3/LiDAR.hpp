@@ -25,6 +25,8 @@ struct resultLiDAR
 {
   int vLeft;
   int vRight;
+  int vMax;
+  float vMaxRatio;
   safetyStatus status = unknown;
 };
 
@@ -33,12 +35,17 @@ const uint8_t rpmMax = 150;
 const uint16_t width = 560;
 const uint16_t treadWidth = 408;
 const uint16_t wheel2LiDAR = 645;
+const uint16_t decelMax = 2730; // mm/s^2
 
-bool cautionL = false;
-bool cautionLF = false;
-bool cautionF = false;
-bool cautionRF = false;
-bool cautionR = false;
+bool measuringLeft = false;
+bool measuringRight = false;
+bool measuringFront = false;
+
+float leftMin;
+float rightMin;
+
+bool cautionLeft;
+bool cautionRight;
 
 unsigned long lastLiDAR = 0;
 
@@ -52,10 +59,11 @@ int speed2v(float speed)
   return (speed / (rpmMax * 2 * PI * tireRadius / 60)) * 128 + 127;
 }
 
-resultLiDAR LiDAR(int vLeft, int vRight, int cautionDistance, int stopDistance)
+struct resultLiDAR result;
+
+resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance, int stopDistance)
 {
   float seconds = (millis() - lastLiDAR) / 1000;
-  struct resultLiDAR result;
 
   result.vLeft = vLeft;
   result.vRight = vRight;
@@ -75,12 +83,35 @@ resultLiDAR LiDAR(int vLeft, int vRight, int cautionDistance, int stopDistance)
       float endAngle = angleCorrect(dl, al);
       float angleDiff = startAngle < endAngle ? endAngle - startAngle : 360 - startAngle + endAngle;
 
+      measuringLeft = (80 < startAngle && startAngle < 158 || 80 < endAngle && endAngle < 158);
+      measuringFront = (158 < startAngle && startAngle < 203 || 158 < endAngle && endAngle < 203);
+      measuringRight = (203 < startAngle && startAngle < 280 || 203 < endAngle && endAngle < 280);
+
       float theta = (v2speed(vLeft) - v2speed(vRight)) / treadWidth * seconds;
       float travel = (v2speed(vLeft) + v2speed(vRight)) / 2 * seconds;
+      // 車輪間中心の変位
       float dx = travel * sin(theta);
       float dy = travel * cos(theta);
+      // LiDARセンサーの変位
       float dxL = dx + wheel2LiDAR * sin(theta);
       float dyL = -wheel2LiDAR + dy + wheel2LiDAR * cos(theta);
+
+      if (measuringFront)
+      {
+        result.vMax = 255;
+        result.vMaxRatio = 1.0;
+      }
+      if (measuringLeft)
+      {
+        cautionLeft = false;
+        leftMin = 1000;
+      }
+      if (measuringRight)
+      {
+        cautionRight = false;
+        rightMin = 1000;
+      }
+
       for (unsigned int i = 10; i < dataCount * 2 + 10; i += 2)
       {
         float distance = (packet[i + 1] << 8 | packet[i]) / 4;
@@ -89,90 +120,41 @@ resultLiDAR LiDAR(int vLeft, int vRight, int cautionDistance, int stopDistance)
         {
           if (distance > 0)
           {
-            float x = distance * cos((angle - 90) * PI / 180.0) - dx;
-            float y = distance * sin((angle - 90) * PI / 180.0) - dy;
+            float x = distance * cos((angle + 90) * PI / 180.0);
+            float y = distance * sin((angle - 90) * PI / 180.0);
 
             float x2t = x - dxL;
             float y2t = y - dyL;
             float distance2 = sqrt(sq(x2t) + sq(y2t));
             float angle2 = x2t == 0 ? PI / 2 : -(atan(y2t / x2t) + theta);
+            angle2 += angle2 < 0 ? PI : 0;
 
-            float x2 = distance2 * cos(angle2);
+            float x2 = -distance2 * cos(angle2);
             float y2 = distance2 * sin(angle2);
 
-            float dxP = x2 - x;
-            float dyP = y2 - y;
-
-            // float pointRadius = sqrt(sq(pointY) + sq(pointX));
-            // float pointAngle = acos((distance * cos((angle - 90) * PI / 180.0)) / pointRadius) / PI * 180;
-
-            if ((-width / 2 - cautionDistance <= x && x <= width / 2 + cautionDistance && y <= cautionDistance))
+            if (measuringFront && -width / 2 <= x2 && x2 < width / 2 && y2 < y && vLeft > 127 && vRight > 127)
             {
-              if (signDifferent(vLeft - 127, vRight - 127) && (dxP < 0 || dyP < 0))
-              {
-                result.status = caution;
-                result.vLeft = (vLeft - 127) * (distance - stopDistance) / (v2speed(vLeft) * 5) + 127;
-                result.vRight = (vRight - 127) * (distance - stopDistance) / (v2speed(vLeft) * 5) + 127;
-                Serial.print("1: ");
-                Serial.print(vLeft);
-                Serial.print(", ");
-                Serial.print(vRight);
-                Serial.print(" -> ");
-                Serial.print(result.vLeft);
-                Serial.print(", ");
-                Serial.println(result.vRight);
-              }
-              else if (vLeft > 127 && vRight > 127)
-              {
-                if (dyP < 0 && (-width / 2 <= x2 && x2 <= width / 2))
-                {
-                  result.status = caution;
-                  result.vLeft = (vLeft - 127) * (distance - stopDistance) / (v2speed(vLeft) * 5) + 127;
-                  result.vRight = (vRight - 127) * (distance - stopDistance) / (v2speed(vLeft) * 5) + 127;
-                  Serial.print("2: ");
-                  Serial.print(vLeft);
-                  Serial.print(", ");
-                  Serial.print(vRight);
-                  Serial.print(" -> ");
-                  Serial.print(result.vLeft);
-                  Serial.print(", ");
-                  Serial.println(result.vRight);
-                }
-                else if (dxP < 0)
-                {
-                  result.status = caution;
-                  if (vRight - 127 > vLeft - 127)
-                  {
-                    result.vRight = (vRight - 127) * (distance - stopDistance) / (v2speed(vLeft) * 5) + 127;
-                    Serial.print("3: ");
-                    Serial.print(vLeft);
-                    Serial.print(", ");
-                    Serial.print(vRight);
-                    Serial.print(" -> ");
-                    Serial.print(result.vLeft);
-                    Serial.print(", ");
-                    Serial.println(result.vRight);
-                  }
-                  else
-                  {
-                    result.vLeft = (vLeft - 127) * (distance - stopDistance) / (v2speed(vLeft) * 5) + 127;
-                    Serial.print("4: ");
-                    Serial.print(vLeft);
-                    Serial.print(", ");
-                    Serial.print(vRight);
-                    Serial.print(" -> ");
-                    Serial.print(result.vLeft);
-                    Serial.print(", ");
-                    Serial.println(result.vRight);
-                  }
-                }
-              }
+              result.vMax = abs(result.vMax - 127) < abs(speed2v((y2 - stopDistance) / protectionSecs) - 127) ? result.vMax : speed2v((y2 - stopDistance) / protectionSecs);
             }
-            if ((-width / 2 - stopDistance <= x && x <= width / 2 + stopDistance && y <= stopDistance) || (result.status == caution && result.vLeft == 127 && result.vRight == 127))
+            else if (y <= cautionDistance && vLeft > 127 && vRight > 127)
             {
-              result.vLeft = 127;
-              result.vRight = 127;
-              result.status = stop;
+              if (measuringLeft)
+              {
+                leftMin = min(leftMin, abs(x2));
+                if (leftMin < (width / 2 + stopDistance))
+                {
+                  cautionLeft = true;
+                }
+              }
+
+              if (measuringRight)
+              {
+                rightMin = min(rightMin, abs(x2));
+                if (rightMin < (width / 2 + stopDistance))
+                {
+                  cautionRight = true;
+                }
+              }
             }
             if (result.status == unknown)
             {
@@ -182,6 +164,20 @@ resultLiDAR LiDAR(int vLeft, int vRight, int cautionDistance, int stopDistance)
           lastLiDAR = millis();
         }
       }
+    }
+  }
+  result.vMaxRatio = abs(min(result.vMax, 255) - 127) / 127.0;
+  result.vLeft = (result.vLeft - 127) * result.vMaxRatio + 127;
+  result.vRight = (result.vRight - 127) * result.vMaxRatio + 127;
+  if (cautionLeft || cautionRight)
+  {
+    if (leftMin < rightMin)
+    {
+      result.vRight = (result.vLeft - 127) / 3 + 127;
+    }
+    else
+    {
+      result.vLeft = (result.vRight - 127) / 3 + 127;
     }
   }
   return result;
