@@ -43,12 +43,13 @@ float offsets[CELL_COUNT];
 bool calibrated = false;
 int centerRL = 0;
 int centerBF = 0;
-int deltaMaxRL = 150;
-int deltaMaxBF = 150;
-int deltaMinRL = 50;
-int deltaMinBF = 50;
+int deltaMaxRL = 1500;
+int deltaMaxBF = 1500;
+int deltaMinRL = 120;
+int deltaMinBF = 120;
 float bf = 0;
 float rl = 0;
+bool calibrating = false;
 
 bool every(bool boolArray[], bool equals = true)
 {
@@ -127,6 +128,10 @@ void setupLoadCell()
   {
     putWeightsTo(offsets);
   }
+
+  note(NOTE_C, 7);
+  note(NOTE_E, 7);
+  note(NOTE_G, 7);
 }
 
 CoG getCoG()
@@ -188,7 +193,7 @@ void calibrate()
       note(NOTE_C);
       waitButtonUntil(LOW);
       delay(50);
-      calibrationPhase = MIN;
+      calibrationPhase = FINISH;
     }
     break;
   case MIN:
@@ -226,6 +231,18 @@ void calibrate()
       note(NOTE_C, 7);
       note(NOTE_E, 7);
       note(NOTE_G, 7);
+      Serial.print("centerBF: ");
+      Serial.println(centerBF);
+      Serial.print(", centerRL: ");
+      Serial.print(centerRL);
+      Serial.print(", deltaMinBF: ");
+      Serial.print(deltaMinBF);
+      Serial.print(", deltaMinRL: ");
+      Serial.print(deltaMinRL);
+      Serial.print(", deltaMaxBF: ");
+      Serial.print(deltaMaxBF);
+      Serial.print(", deltaMaxRL: ");
+      Serial.println(deltaMaxRL);
       calibrating = false;
       calibrated = true;
       calibrationPhase = CENTER;

@@ -39,18 +39,14 @@ void setup()
 
   Serial.begin(115200);
 
-  BluetoothSetup();
-  setupLoadCell();
   setupLiDAR();
+  setupLoadCell();
+  BluetoothSetup();
 
   if (bleMode == 1)
   {
     calibrating = true;
   }
-
-  note(NOTE_C, 7);
-  note(NOTE_E, 7);
-  note(NOTE_G, 7);
 }
 
 void loop()

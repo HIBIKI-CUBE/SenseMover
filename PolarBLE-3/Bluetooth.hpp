@@ -6,6 +6,8 @@
 #include <BLEServer.h>
 #include "./Interaction.hpp"
 #include <Arduino_JSON.h>
+#include "./LiDAR.hpp"
+#include "./LoadCell.hpp"
 
 #define SERVICE_UUID "2ba23aa3-f921-451e-a54b-e3093e5e3112"
 #define CHARACTERISTIC_UUID "f46a5236-5e85-4933-b171-48b7461722c3"
@@ -18,8 +20,6 @@ BLECharacteristic *pCharacteristic;
 bool active = false;
 bool activeToggled = false;
 unsigned long lastBleCommand = 0;
-bool calibrating = false;
-
 class MyServerCallbacks : public BLEServerCallbacks
 {
   void onConnect(BLEServer *pServer, esp_ble_gatts_cb_param_t *param)
@@ -33,33 +33,24 @@ class MyServerCallbacks : public BLEServerCallbacks
     // start sent the update connection parameters to the peer device.
     esp_ble_gap_update_conn_params(&conn_params);
 
-    // VULCAN Startup Sound
-    note(NOTE_D, 6, 27);
-    note(NOTE_A, 6, 27);
-    note(NOTE_D, 7, 27);
-    note(NOTE_A, 7, 27);
-    note(NOTE_D, 8, 27);
-    note(NOTE_Eb, 6, 27);
-    note(NOTE_Bb, 6, 27);
-    note(NOTE_Eb, 7, 27);
-    note(NOTE_Bb, 7, 27);
-    note(NOTE_Eb, 8, 27);
-    note(NOTE_E, 6, 27);
-    note(NOTE_B, 6, 27);
-    note(NOTE_E, 7, 27);
-    note(NOTE_B, 7, 27);
-    note(NOTE_E, 8, 27);
-    note(NOTE_F, 6, 27);
-    note(NOTE_C, 6, 27);
-    note(NOTE_F, 7, 27);
-    note(NOTE_C, 7, 27);
-    note(NOTE_F, 8, 27);
+    bluetoothConnected();
+
+    if(!lidarFront){
+      lidarFrontOn();
+    }
+    if(!lidarSide){
+      lidarSideOn();
+    }
+    lidarFront = true;
+    lidarSide = true;
   };
   void onDisconnect(BLEServer *pServer)
   {
     note(NOTE_E, 7);
     note(NOTE_D, 7);
     note(NOTE_Bb, 7);
+    lidarFront = true;
+    lidarSide = true;
     BLEDevice::startAdvertising();
   }
 };
@@ -87,11 +78,35 @@ private:
       }
       if (data.hasOwnProperty("active"))
       {
-        if (active != (bool)data["active"])
-        {
-          activeToggled = true;
-        }
+        activeToggled = true;
         active = (bool)data["active"];
+      }
+      if (data.hasOwnProperty("front") || data.hasOwnProperty("side"))
+      {
+        if (lidarFront != (bool)data["front"])
+        {
+          if ((bool)data["front"])
+          {
+            lidarFrontOn();
+          }
+          else
+          {
+            lidarFrontOff();
+          }
+        }
+        if (lidarSide != (bool)data["side"])
+        {
+          if ((bool)data["side"])
+          {
+            lidarSideOn();
+          }
+          else
+          {
+            lidarSideOff();
+          }
+        }
+        lidarFront = (bool)data["front"];
+        lidarSide = (bool)data["side"];
       }
       if (data.hasOwnProperty("mode"))
       {
@@ -104,6 +119,12 @@ private:
         if (JSON.stringify((const char *)data["action"]) == "\"calibrate\"")
         {
           calibrating = true;
+          centerRL = 0;
+          centerBF = 0;
+        }
+        else if (JSON.stringify((const char *)data["action"]) == "\"reset\"")
+        {
+          ESP.restart();
         }
         else
         {

@@ -1,3 +1,6 @@
+#ifndef _LiDAR_h
+#define _LiDAR_h
+
 float angleCorrect(float distance, float angle)
 {
   return angle + (distance < 1 ? 0 : (1 / (0.00082 * distance - 0.002) - 8));
@@ -6,6 +9,8 @@ float angleCorrect(float distance, float angle)
 void setupLiDAR()
 {
   Serial2.begin(115200);
+  lidarFrontOn();
+  lidarSideOn();
 }
 
 bool signDifferent(int a, int b)
@@ -46,6 +51,9 @@ float rightMin;
 
 bool cautionLeft;
 bool cautionRight;
+
+bool lidarFront = true;
+bool lidarSide = true;
 
 unsigned long lastLiDAR = 0;
 
@@ -132,53 +140,66 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
             float x2 = -distance2 * cos(angle2);
             float y2 = distance2 * sin(angle2);
 
-            if (measuringFront && -width / 2 <= x2 && x2 < width / 2 && y2 < y && vLeft > 127 && vRight > 127)
+            if (vLeft > 127 && vRight > 127)
             {
-              result.vMax = abs(result.vMax - 127) < abs(speed2v((y2 - stopDistance) / protectionSecs) - 127) ? result.vMax : speed2v((y2 - stopDistance) / protectionSecs);
-            }
-            else if (y <= cautionDistance && vLeft > 127 && vRight > 127)
-            {
-              if (measuringLeft)
+              if (measuringFront && -width / 2 <= x2 && x2 < width / 2 && y2 < y)
               {
-                leftMin = min(leftMin, abs(x2));
-                if (leftMin < (width / 2 + stopDistance))
-                {
-                  cautionLeft = true;
-                }
+                result.vMax = abs(result.vMax - 127) < abs(speed2v((y2 - stopDistance) / protectionSecs) - 127) ? result.vMax : speed2v((y2 - stopDistance) / protectionSecs);
               }
+              else if (y <= cautionDistance)
+              {
+                if (measuringLeft)
+                {
+                  leftMin = min(leftMin, abs(x2));
+                  if (leftMin < (width / 2 + stopDistance))
+                  {
+                    cautionLeft = true;
+                  }
+                }
 
-              if (measuringRight)
-              {
-                rightMin = min(rightMin, abs(x2));
-                if (rightMin < (width / 2 + stopDistance))
+                if (measuringRight)
                 {
-                  cautionRight = true;
+                  rightMin = min(rightMin, abs(x2));
+                  if (rightMin < (width / 2 + stopDistance))
+                  {
+                    cautionRight = true;
+                  }
                 }
               }
             }
+            // else if (signDifferent(vLeft - 127, vRight - 127))
+            // {
             if (result.status == unknown)
             {
               result.status = safe;
             }
           }
-          lastLiDAR = millis();
         }
+        lastLiDAR = millis();
       }
     }
   }
-  result.vMaxRatio = abs(min(result.vMax, 255) - 127) / 127.0;
-  result.vLeft = (result.vLeft - 127) * result.vMaxRatio + 127;
-  result.vRight = (result.vRight - 127) * result.vMaxRatio + 127;
-  if (cautionLeft || cautionRight)
+  if (lidarFront)
   {
-    if (leftMin < rightMin)
+    result.vMaxRatio = abs(min(result.vMax, 255) - 127) / 127.0;
+    result.vLeft = (result.vLeft - 127) * result.vMaxRatio + 127;
+    result.vRight = (result.vRight - 127) * result.vMaxRatio + 127;
+  }
+  if (lidarSide)
+  {
+    if (cautionLeft || cautionRight)
     {
-      result.vRight = (result.vLeft - 127) / 3 + 127;
-    }
-    else
-    {
-      result.vLeft = (result.vRight - 127) / 3 + 127;
+      if (leftMin < rightMin)
+      {
+        result.vRight = (result.vLeft - 127) / 3 + 127;
+      }
+      else
+      {
+        result.vLeft = (result.vRight - 127) / 3 + 127;
+      }
     }
   }
   return result;
 }
+
+#endif
