@@ -2,6 +2,7 @@
 #define _LoadCell_h
 
 #include <deque> //This won't work on regular Arduino boards. Use it with ESP family.
+#include <numeric>
 #include "./Interaction.hpp"
 
 //---------------------------------------------------//
@@ -30,6 +31,7 @@ struct CoG
 {
   float bf = 0;
   float rl = 0;
+  float weight = 0;
 };
 
 byte dataPins[] = {LF_DAT, LB_DAT, RF_DAT, RB_DAT};
@@ -169,6 +171,7 @@ CoG getCoG()
 
   result.bf = ((cellRawData[0] + cellRawData[2]) / 2) - ((cellRawData[1] + cellRawData[3]) / 2) - centerBF;
   result.rl = ((cellRawData[2] + cellRawData[3]) / 2) - ((cellRawData[0] + cellRawData[1]) / 2) - centerRL;
+  result.weight = std::accumulate(cellRawData, cellRawData + CELL_COUNT, 0);
   return result;
 }
 
@@ -231,7 +234,9 @@ void calibrate()
       note(NOTE_C, 7);
       note(NOTE_E, 7);
       note(NOTE_G, 7);
-      Serial.print("centerBF: ");
+      Serial.print("Weight: ");
+      Serial.println(getCoG().weight);
+      Serial.print(", centerBF: ");
       Serial.println(centerBF);
       Serial.print(", centerRL: ");
       Serial.print(centerRL);

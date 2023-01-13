@@ -165,7 +165,7 @@ void loop()
       note(NOTE_Bb);
     }
 
-    if (digitalRead(button) == HIGH || (safety.status == stop && false) )
+    if (digitalRead(button) == HIGH || (safety.status == stop && false))
     {
       isEmergency = true;
       note(NOTE_Bb);
@@ -203,6 +203,12 @@ void loop()
   {
     vLeft = 127;
     vRight = 127;
+  }
+
+  if (active && bleMode == 1 && CoG.weight <= 1000)
+  {
+    active = false;
+    activeToggled = true;
   }
 
   vLeft = constrain(vLeft, 25, 255);
