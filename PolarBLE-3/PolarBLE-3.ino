@@ -20,6 +20,11 @@ unsigned long backSignDelay = 0;
 bool isEmergency = false;
 unsigned long lastEmergency = 0;
 unsigned long lastUnlock = 0;
+int vlTarget = 127;
+int vrTarget = 127;
+int8_t elapsed = 0;
+struct resultLiDAR safety;
+struct CoG CoG;
 
 void setup()
 {
@@ -50,8 +55,8 @@ void setup()
 
 void loop()
 {
-  int vlTarget = 127;
-  int vrTarget = 127;
+  vlTarget = 127;
+  vrTarget = 127;
   switch (bleMode)
   {
   case 0:
@@ -59,7 +64,7 @@ void loop()
     theta = bleAngle;
     break;
   case 1:
-    struct CoG CoG = getCoG();
+    CoG = getCoG();
     // rl = analogReadMilliVolts(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33) - centerRL;
     radius = sqrt(pow(CoG.bf, 2) + pow(CoG.rl, 2));
     theta = atan2(CoG.rl, CoG.bf) * 180.0 / PI;
@@ -149,8 +154,8 @@ void loop()
     vlTarget = 127;
     vrTarget = 127;
   }
-  uint8_t elapsed = millis() - lastTime;
-  struct resultLiDAR safety = LiDAR(vlTarget, vrTarget, 1, 350, 150);
+  elapsed = millis() - lastTime;
+  safety = LiDAR(vlTarget, vrTarget, 1, 350, 150);
   vlTarget = safety.vLeft;
   vrTarget = safety.vRight;
   if (active && (digitalRead(button) == HIGH || isEmergency || safety.status == caution || safety.status == stop))
