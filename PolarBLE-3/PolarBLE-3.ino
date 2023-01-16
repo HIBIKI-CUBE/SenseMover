@@ -81,38 +81,38 @@ void loop()
   {
     if (active)
     {
-      digitalWrite(activeR, HIGH);
-      digitalWrite(activeL, HIGH);
       note(NOTE_C);
       note(NOTE_G);
     }
     else
     {
-      digitalWrite(activeR, LOW);
-      digitalWrite(activeL, LOW);
       note(NOTE_E);
       note(NOTE_C);
-      isEmergency = false;
-      accel = accelDefault;
     }
     activeToggled = false;
+  }
+
+  if (active)
+  {
+    digitalWrite(activeR, HIGH);
+    digitalWrite(activeL, HIGH);
+  }
+  else
+  {
+    digitalWrite(activeR, LOW);
+    digitalWrite(activeL, LOW);
+    isEmergency = false;
+    accel = accelDefault;
   }
 
   if (active && (((bleMode == 0 || bleMode == 2) && millis() - lastBleCommand <= BleCallbacks::bleWaitDuration * 2) || (bleMode == 1 && calibrated)))
   {
     if (radius >= (bleMode == 1 ? deltaMinBF : 50))
     {
-      switch (bleMode)
-      {
-      case 0:
-        vlTarget = map(radius, 0, 1000, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
-        vrTarget = vlTarget;
-        break;
-      case 1:
-        vlTarget = map(radius, centerBF, deltaMaxBF, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
-        vrTarget = vlTarget;
-        break;
-      }
+      // switch (bleMode)
+      // {
+      vlTarget = map(radius, bleMode == 0 ? 0 : centerBF, bleMode == 0 ? 1000 : deltaMaxBF, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
+      vrTarget = vlTarget;
       if (abs(theta) <= 120)
       {
         if (theta >= 0)
@@ -143,6 +143,8 @@ void loop()
           backSignDelay = millis();
         }
       }
+      vlTarget = (vlTarget - 127) / (fast ? 1 : 3.0) + 127;
+      vrTarget = (vrTarget - 127) / (fast ? 1 : 3.0) + 127;
     }
   }
   else

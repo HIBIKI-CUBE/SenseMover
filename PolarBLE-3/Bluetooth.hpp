@@ -19,6 +19,15 @@ unsigned long bleReadDelay = 0;
 BLECharacteristic *pCharacteristic;
 bool active = false;
 bool activeToggled = false;
+bool fast = false;
+uint8_t activeFlagMask = 0b10000000;
+uint8_t remoteFlagMask = 0b01000000;
+uint8_t rideFlagMask = 0b00100000;
+uint8_t fastFlagMask = 0b00010000;
+uint8_t lidarFrontFlagMask = 0b00001000;
+uint8_t lidarSideFlagMask = 0b00000100;
+uint8_t calibrateFlagMask = 0b00000010;
+uint8_t resetFlagMask = 0b00000001;
 unsigned long lastBleCommand = 0;
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -35,10 +44,12 @@ class MyServerCallbacks : public BLEServerCallbacks
 
     bluetoothConnected();
 
-    if(!lidarFront){
+    if (!lidarFront)
+    {
       lidarFrontOn();
     }
-    if(!lidarSide){
+    if (!lidarSide)
+    {
       lidarSideOn();
     }
     lidarFront = true;
@@ -46,9 +57,7 @@ class MyServerCallbacks : public BLEServerCallbacks
   };
   void onDisconnect(BLEServer *pServer)
   {
-    note(NOTE_E, 7);
-    note(NOTE_D, 7);
-    note(NOTE_Bb, 7);
+    bluetoothDisconnected();
     lidarFront = true;
     lidarSide = true;
     BLEDevice::startAdvertising();
@@ -67,69 +76,62 @@ private:
     if (value.length() > 0)
     {
       String raw = value.c_str();
-      JSONVar data = JSON.parse(raw);
-      if (data.hasOwnProperty("d"))
+      JSONVar json = JSON.parse(raw);
+      if (json.hasOwnProperty("f"))
       {
-        bleDistance = (int)data["d"];
-      }
-      if (data.hasOwnProperty("a"))
-      {
-        bleAngle = (int)data["a"];
-      }
-      if (data.hasOwnProperty("active"))
-      {
-        activeToggled = true;
-        active = (bool)data["active"];
-      }
-      if (data.hasOwnProperty("front") || data.hasOwnProperty("side"))
-      {
-        if (lidarFront != (bool)data["front"])
+        uint8_t flags = (uint8_t)json["f"];
+        Serial.println((uint8_t)json["f"], BIN);
+        activeToggled = active != !!(flags & activeFlagMask);
+        active = flags & activeFlagMask;
+
+        if (!!(flags & remoteFlagMask) != !!(flags & rideFlagMask))
         {
-          if ((bool)data["front"])
+          if (flags & remoteFlagMask && !!(flags & remoteFlagMask) != bleMode == 0)
           {
-            lidarFrontOn();
+            switchMode();
+            bleMode = 0;
           }
-          else
+          if (flags & rideFlagMask && !!(flags & rideFlagMask) != bleMode == 1)
           {
-            lidarFrontOff();
+            switchMode();
+            bleMode = 1;
           }
         }
-        if (lidarSide != (bool)data["side"])
+
+        fast = flags & fastFlagMask;
+
+        if (lidarFront != !!(flags & lidarFrontFlagMask))
         {
-          if ((bool)data["side"])
-          {
-            lidarSideOn();
-          }
-          else
-          {
-            lidarSideOff();
-          }
+          (flags & lidarFrontFlagMask) ? lidarFrontOn() : lidarFrontOff();
         }
-        lidarFront = (bool)data["front"];
-        lidarSide = (bool)data["side"];
-      }
-      if (data.hasOwnProperty("mode"))
-      {
-        blink();
-        bleMode = (int)data["mode"];
-      }
-      if (data.hasOwnProperty("action"))
-      {
-        blink();
-        if (JSON.stringify((const char *)data["action"]) == "\"calibrate\"")
+        lidarFront = flags & 0b00001000;
+        if (lidarSide != !!(flags & lidarSideFlagMask))
+        {
+          (flags & lidarSideFlagMask) ? lidarSideOn() : lidarSideOff();
+        }
+        lidarSide = flags & lidarSideFlagMask;
+
+        if (flags & calibrateFlagMask)
         {
           calibrating = true;
           centerRL = 0;
           centerBF = 0;
         }
-        else if (JSON.stringify((const char *)data["action"]) == "\"reset\"")
+
+        if (flags & resetFlagMask)
         {
+          Serial.println("reset");
+          bluetoothDisconnected();
           ESP.restart();
         }
-        else
-        {
-          note(NOTE_Bb, 5);
-        }
+      }
+      if (json.hasOwnProperty("d"))
+      {
+        bleDistance = (int)json["d"];
+      }
+      if (json.hasOwnProperty("a"))
+      {
+        bleAngle = (int)json["a"];
       }
     }
     lastBleCommand = millis();

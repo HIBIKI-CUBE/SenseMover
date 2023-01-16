@@ -91,9 +91,9 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
       float endAngle = angleCorrect(dl, al);
       float angleDiff = startAngle < endAngle ? endAngle - startAngle : 360 - startAngle + endAngle;
 
-      measuringLeft = (80 < startAngle && startAngle < 158 || 80 < endAngle && endAngle < 158);
+      measuringLeft = (85 < startAngle && startAngle < 158 || 80 < endAngle && endAngle < 158);
       measuringFront = (158 < startAngle && startAngle < 203 || 158 < endAngle && endAngle < 203);
-      measuringRight = (203 < startAngle && startAngle < 280 || 203 < endAngle && endAngle < 280);
+      measuringRight = (203 < startAngle && startAngle < 275 || 203 < endAngle && endAngle < 275);
 
       float theta = (v2speed(vLeft) - v2speed(vRight)) / treadWidth * seconds;
       float travel = (v2speed(vLeft) + v2speed(vRight)) / 2 * seconds;
@@ -154,6 +154,7 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
                   if (leftMin < (width / 2 + stopDistance))
                   {
                     cautionLeft = true;
+                    result.status = caution;
                   }
                 }
 
@@ -163,6 +164,7 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
                   if (rightMin < (width / 2 + stopDistance))
                   {
                     cautionRight = true;
+                    result.status = caution;
                   }
                 }
               }
@@ -187,15 +189,26 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
   }
   if (lidarSide)
   {
-    if (cautionLeft || cautionRight)
+    if (cautionLeft && cautionRight)
     {
       if (leftMin < rightMin)
       {
-        result.vRight = (result.vLeft - 127) / 3 + 127;
+        result.vRight = (result.vLeft - 127) / 2 + 127;
       }
       else
       {
-        result.vLeft = (result.vRight - 127) / 3 + 127;
+        result.vLeft = (result.vRight - 127) / 2 + 127;
+      }
+    }
+    else
+    {
+      if (cautionLeft)
+      {
+        result.vRight = (result.vLeft - 127) / 2 + 127;
+      }
+      if (cautionRight)
+      {
+        result.vLeft = (result.vRight - 127) / 2 + 127;
       }
     }
   }

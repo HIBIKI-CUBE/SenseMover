@@ -62,6 +62,13 @@ void bluetoothConnected()
   note(NOTE_F, 8, 27);
 }
 
+void bluetoothDisconnected()
+{
+  note(NOTE_E, 7);
+  note(NOTE_D, 7);
+  note(NOTE_Bb, 7);
+}
+
 void lidarFrontOn()
 {
   note(NOTE_B, 5, 27);
@@ -112,6 +119,12 @@ void lidarSideOff()
   note(NOTE_Cs, 8, 27);
   note(NOTE_Bb, 6, 27);
   note(NOTE_Bb, 7, 27);
+}
+
+void switchMode()
+{
+  note(NOTE_C, 6, 27);
+  note(NOTE_C, 7, 27);
 }
 
 #endif
