@@ -186,74 +186,13 @@ CalibrationPhase calibrationPhase = CENTER;
 
 void calibrate()
 {
-  switch (calibrationPhase)
-  {
-  case CENTER:
-    if (digitalRead(button) == HIGH)
-    {
-      centerBF = getCoG().bf;
-      centerRL = getCoG().rl;
-      note(NOTE_C);
-      waitButtonUntil(LOW);
-      delay(50);
-      calibrationPhase = FINISH;
-    }
-    break;
-  case MIN:
-    if (digitalRead(button) == HIGH)
-    {
-      deltaMinBF = getCoG().bf;
-      deltaMinRL = getCoG().rl;
-      note(NOTE_E);
-      waitButtonUntil(LOW);
-      delay(50);
-      calibrationPhase = MAX;
-    }
-    if (getCoG().bf <= 0 || getCoG().rl <= 0)
-    {
-      note(NOTE_Bb);
-    }
-    break;
-  case MAX:
-    if (digitalRead(button) == HIGH)
-    {
-      deltaMaxBF = getCoG().bf;
-      deltaMaxRL = getCoG().rl;
-      note(NOTE_G);
-      waitButtonUntil(LOW);
-      calibrationPhase = FINISH;
-    }
-    if (getCoG().bf <= deltaMinBF || getCoG().rl <= deltaMinRL)
-    {
-      note(NOTE_Bb);
-    }
-    break;
-  case FINISH:
-    if (-deltaMinBF <= getCoG().bf && getCoG().bf <= deltaMinBF && -deltaMinRL <= getCoG().rl && getCoG().rl <= deltaMinRL)
-    {
-      note(NOTE_C, 7);
-      note(NOTE_E, 7);
-      note(NOTE_G, 7);
-      Serial.print("Weight: ");
-      Serial.println(getCoG().weight);
-      Serial.print(", centerBF: ");
-      Serial.println(centerBF);
-      Serial.print(", centerRL: ");
-      Serial.print(centerRL);
-      Serial.print(", deltaMinBF: ");
-      Serial.print(deltaMinBF);
-      Serial.print(", deltaMinRL: ");
-      Serial.print(deltaMinRL);
-      Serial.print(", deltaMaxBF: ");
-      Serial.print(deltaMaxBF);
-      Serial.print(", deltaMaxRL: ");
-      Serial.println(deltaMaxRL);
-      calibrating = false;
-      calibrated = true;
-      calibrationPhase = CENTER;
-    }
-    break;
-  }
+  centerBF = getCoG().bf;
+  centerRL = getCoG().rl;
+  note(NOTE_C, 7);
+  note(NOTE_G, 7);
+  note(NOTE_C, 8);
+  calibrated = true;
+  calibrating = false;
 }
 
 #endif
