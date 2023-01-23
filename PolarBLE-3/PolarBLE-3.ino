@@ -158,7 +158,7 @@ void loop()
   vrTarget = safety.vRight;
   if (active && (digitalRead(button) == HIGH || isEmergency || safety.status == caution || safety.status == stop))
   {
-    if (safety.status == caution)
+    if (safety.status == caution && (lidarFront || lidarSide))
     {
       note(NOTE_Gs);
     }
@@ -167,7 +167,7 @@ void loop()
       note(NOTE_Bb);
     }
 
-    if (digitalRead(button) == HIGH || (safety.status == stop && false))
+    if (digitalRead(button) == HIGH || safety.status == stop)
     {
       isEmergency = true;
       note(NOTE_Bb);
