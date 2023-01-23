@@ -51,6 +51,8 @@ float rightMin;
 
 bool cautionLeft;
 bool cautionRight;
+bool cautionRollR;
+bool cautionRollL;
 
 bool lidarFront = true;
 bool lidarSide = true;
@@ -112,11 +114,13 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
       if (measuringLeft)
       {
         cautionLeft = false;
+        cautionRollL = false;
         leftMin = 1000;
       }
       if (measuringRight)
       {
         cautionRight = false;
+        cautionRollR = false;
         rightMin = 1000;
       }
 
@@ -169,8 +173,17 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
                 }
               }
             }
-            // else if (signDifferent(vLeft - 127, vRight - 127))
-            // {
+            else if (signDifferent(vLeft - 127, vRight - 127) && (y <= stopDistance || y2 <= stopDistance) && abs(x2) < abs(x) && (abs(x) <= (width / 2 + stopDistance * 2) || abs(x2) <= (width / 2 + stopDistance * 2)))
+            {
+              if (vLeft < vRight && measuringLeft)
+              {
+                cautionRollL = true;
+              }
+              else if (measuringRight){
+                cautionRollR = true;
+              }
+              result.status = caution;
+            }
             if (result.status == unknown)
             {
               result.status = safe;
@@ -184,11 +197,19 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
   if (lidarFront)
   {
     result.vMaxRatio = abs(min(result.vMax, 255) - 127) / 127.0;
+    if(result.vMaxRatio < 0.1){
+      result.status = caution;
+    }
     result.vLeft = (result.vLeft - 127) * result.vMaxRatio + 127;
     result.vRight = (result.vRight - 127) * result.vMaxRatio + 127;
   }
   if (lidarSide)
   {
+    if (cautionRollL || cautionRollR)
+    {
+      result.vLeft = 127;
+      result.vRight = 127;
+    }
     if (cautionLeft && cautionRight)
     {
       if (leftMin < rightMin)
