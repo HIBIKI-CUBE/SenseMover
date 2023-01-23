@@ -80,7 +80,6 @@ private:
       if (json.hasOwnProperty("f"))
       {
         uint8_t flags = (uint8_t)json["f"];
-        Serial.println((uint8_t)json["f"], BIN);
         activeToggled = active != !!(flags & activeFlagMask);
         active = flags & activeFlagMask;
 
@@ -120,7 +119,6 @@ private:
 
         if (flags & resetFlagMask)
         {
-          Serial.println("reset");
           bluetoothDisconnected();
           ESP.restart();
         }
