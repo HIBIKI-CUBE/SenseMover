@@ -8,8 +8,8 @@
 //---------------------------------------------------//
 // ロードセル　シングルポイント（ ビーム型）　ＳＣ１３３　２０ｋＧ [P-12034]
 //---------------------------------------------------//
-#define OUT_VOL 0.001f //定格出力 [V]
-#define LOAD 20000.0f  //定格容量 [g]
+#define OUT_VOL 0.001f // 定格出力 [V]
+#define LOAD 20000.0f  // 定格容量 [g]
 
 #define LF_DAT 21
 #define LF_CLK 22
@@ -43,6 +43,8 @@ std::deque<dataSet> weightsBuffer;
 
 float offsets[CELL_COUNT];
 bool calibrated = false;
+uint8_t calibrationTimer = 3;
+unsigned long lastCalibrationFrame = 0;
 int centerRL = 0;
 int centerBF = 0;
 int deltaMaxRL = 1400;
@@ -186,13 +188,26 @@ CalibrationPhase calibrationPhase = CENTER;
 
 void calibrate()
 {
-  centerBF = getCoG().bf;
-  centerRL = getCoG().rl;
-  note(NOTE_C, 7);
-  note(NOTE_G, 7);
-  note(NOTE_C, 8);
-  calibrated = true;
-  calibrating = false;
+  if (calibrationTimer == 3 || millis() - lastCalibrationFrame >= 950)
+  {
+    if (calibrationTimer > 0)
+    {
+      note(NOTE_G, 6);
+      lastCalibrationFrame = millis();
+      --calibrationTimer;
+    }
+    else
+    {
+      centerBF = getCoG().bf;
+      centerRL = getCoG().rl;
+      note(NOTE_C, 7);
+      note(NOTE_G, 7);
+      note(NOTE_C, 8);
+      calibrated = true;
+      calibrating = false;
+      calibrationTimer = 3;
+    }
+  }
 }
 
 #endif
