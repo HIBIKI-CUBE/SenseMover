@@ -42,11 +42,6 @@ void setup()
   setupLiDAR();
   setupLoadCell();
   BluetoothSetup();
-
-  if (bleMode == 1)
-  {
-    calibrating = true;
-  }
 }
 
 void loop()
@@ -61,15 +56,17 @@ void loop()
     break;
   case 1:
     CoG = getCoG();
-    radius = sqrt(pow(CoG.bf, 2) + pow(CoG.rl, 2));
-    theta = atan2(CoG.rl, CoG.bf) * 180.0 / PI;
+    radius = CoG.radius;
+    theta = CoG.theta;
     break;
   }
-  if (bleMode == 1 && millis() - lastBleSend >= 5)
+    if (millis() - lastBleSend >= 5)
   {
     pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
     pCharacteristic->notify();
     lastBleSend = millis();
+  }
+    break;
   }
   if (calibrating)
   {
@@ -149,7 +146,7 @@ void loop()
     vlTarget = 127;
     vrTarget = 127;
   }
-  elapsed = millis() - lastTime;
+
   safety = LiDAR(vlTarget, vrTarget, 1, 350, 150);
   vlTarget = safety.vLeft;
   vrTarget = safety.vRight;
@@ -174,6 +171,7 @@ void loop()
     }
   }
 
+  elapsed = millis() - lastTime;
   if (elapsed >= 10)
   {
 

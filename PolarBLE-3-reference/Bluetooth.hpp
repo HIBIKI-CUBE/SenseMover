@@ -66,7 +66,7 @@ class MyServerCallbacks : public BLEServerCallbacks
 class BleCallbacks : public BLECharacteristicCallbacks
 {
 public:
-  static const uint8_t bleWaitDuration = 30;
+  static const uint8_t bleWaitDuration = 60;
 
 private:
   void onWrite(BLECharacteristic *pCharacteristic)

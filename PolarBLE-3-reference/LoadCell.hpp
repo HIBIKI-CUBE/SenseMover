@@ -26,6 +26,8 @@ struct dataSet
 
 struct CoG
 {
+  int radius = 0;
+  int theta = 0;
   float bf = 0;
   float rl = 0;
   float weight = 0;
@@ -48,8 +50,6 @@ int deltaMaxRL = 1400;
 int deltaMaxBF = 1400;
 int deltaMinRL = 120;
 int deltaMinBF = 120;
-float bf = 0;
-float rl = 0;
 bool calibrating = false;
 
 bool every(bool boolArray[], bool equals = true)
@@ -168,6 +168,8 @@ CoG getCoG()
 
   result.bf = ((cellRawData[0] + cellRawData[2]) / 2) - ((cellRawData[1] + cellRawData[3]) / 2) - centerBF;
   result.rl = ((cellRawData[2] + cellRawData[3]) / 2) - ((cellRawData[0] + cellRawData[1]) / 2) - centerRL;
+  result.radius = sqrt(pow(result.bf, 2) + pow(result.rl, 2));
+  result.theta = atan2(result.rl, result.bf) * 180.0 / PI;
   result.weight = std::accumulate(cellRawData, cellRawData + CELL_COUNT, 0);
   return result;
 }
