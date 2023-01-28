@@ -42,11 +42,6 @@ void setup()
   setupLiDAR();
   setupLoadCell();
   BluetoothSetup();
-
-  if (bleMode == 1)
-  {
-    calibrating = true;
-  }
 }
 
 void loop()
@@ -104,7 +99,7 @@ void loop()
     accel = accelDefault;
   }
 
-  if (active && (((bleMode == 0 || bleMode == 2) && millis() - lastBleCommand <= BleCallbacks::bleWaitDuration * 2) || (bleMode == 1 && calibrated)))
+  if (active && (((bleMode == 0 || bleMode == 2) && millis() - lastBleCommand <= BleCallbacks::bleWaitDuration) || (bleMode == 1 && calibrated)))
   {
     if (radius >= (bleMode == 1 ? deltaMinBF : 50))
     {
@@ -114,11 +109,11 @@ void loop()
       {
         if (theta >= 0)
         { // 右折
-          vrTarget -= (vrTarget - 127.5) * (((float)map((theta >= 60 ? 90 : theta), 0, 60, 0, 100)) / 100);
+          vrTarget -= (vrTarget - 127) * (((float)map((theta >= 60 ? 90 : theta), 0, 60, 0, 100)) / 100);
         }
         else
         { // 左折
-          vlTarget -= (vlTarget - 127.5) * (((float)map((theta <= -60 ? 90 : -theta), 0, 60, 0, 100)) / 100);
+          vlTarget -= (vlTarget - 127) * (((float)map((theta <= -60 ? 90 : -theta), 0, 60, 0, 100)) / 100);
         }
       }
       else
