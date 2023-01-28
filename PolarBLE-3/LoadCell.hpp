@@ -5,9 +5,6 @@
 #include <numeric>
 #include "./Interaction.hpp"
 
-//---------------------------------------------------//
-// ロードセル　シングルポイント（ ビーム型）　ＳＣ１３３　２０ｋＧ [P-12034]
-//---------------------------------------------------//
 #define OUT_VOL 0.001f // 定格出力 [V]
 #define LOAD 20000.0f  // 定格容量 [g]
 
@@ -133,9 +130,7 @@ void setupLoadCell()
     putWeightsTo(offsets);
   }
 
-  note(NOTE_C, 7);
-  note(NOTE_E, 7);
-  note(NOTE_G, 7);
+  loadCellSetupSound();
 }
 
 CoG getCoG()
@@ -177,15 +172,6 @@ CoG getCoG()
   return result;
 }
 
-enum CalibrationPhase
-{
-  CENTER,
-  MIN,
-  MAX,
-  FINISH
-};
-CalibrationPhase calibrationPhase = CENTER;
-
 void calibrate()
 {
   if (calibrationTimer == 3 || millis() - lastCalibrationFrame >= 950)
@@ -200,9 +186,7 @@ void calibrate()
     {
       centerBF = getCoG().bf;
       centerRL = getCoG().rl;
-      note(NOTE_C, 7);
-      note(NOTE_G, 7);
-      note(NOTE_C, 8);
+      calibratedSound();
       calibrated = true;
       calibrating = false;
       calibrationTimer = 3;

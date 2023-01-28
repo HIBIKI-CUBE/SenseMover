@@ -61,16 +61,15 @@ void loop()
     break;
   case 1:
     CoG = getCoG();
-    // rl = analogReadMilliVolts(rightAndLeft) - (abs(analogRead(backAndForth) - 511) * 0.33) - centerRL;
     radius = sqrt(pow(CoG.bf, 2) + pow(CoG.rl, 2));
     theta = atan2(CoG.rl, CoG.bf) * 180.0 / PI;
     break;
   }
-  if (bleMode == 1 && millis() - bleReadDelay >= 5)
+  if (bleMode == 1 && millis() - lastBleSend >= 5)
   {
     pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
     pCharacteristic->notify();
-    bleReadDelay = millis();
+    lastBleSend = millis();
   }
   if (calibrating)
   {
@@ -109,8 +108,6 @@ void loop()
   {
     if (radius >= (bleMode == 1 ? deltaMinBF : 50))
     {
-      // switch (bleMode)
-      // {
       vlTarget = map(radius, bleMode == 0 ? 0 : centerBF, bleMode == 0 ? 1000 : deltaMaxBF, 128, 60 <= abs(theta) && abs(theta) <= 120 ? 192 : 255);
       vrTarget = vlTarget;
       if (abs(theta) <= 120)

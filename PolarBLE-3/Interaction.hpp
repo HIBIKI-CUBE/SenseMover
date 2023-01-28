@@ -7,13 +7,6 @@ static const uint8_t button = 2;
 static const uint8_t buzzerPin = 23;
 static const uint8_t buzzerChannel = 0;
 
-void waitButtonUntil(int v)
-{
-  while (digitalRead(button) != v)
-  {
-  }
-}
-
 void setupInteraction()
 {
 #define BUZZER_FREQ 12000
@@ -38,7 +31,7 @@ void blink(int t = 20)
   // digitalWrite(led, LOW);
 }
 
-void bluetoothConnected()
+void connectedSound()
 {
   note(NOTE_D, 6, 27);
   note(NOTE_A, 6, 27);
@@ -62,14 +55,28 @@ void bluetoothConnected()
   note(NOTE_F, 8, 27);
 }
 
-void bluetoothDisconnected()
+void disconnectedSound()
 {
   note(NOTE_E, 7);
   note(NOTE_D, 7);
   note(NOTE_Bb, 7);
 }
 
-void lidarFrontOn()
+void loadCellSetupSound()
+{
+  note(NOTE_C, 7);
+  note(NOTE_E, 7);
+  note(NOTE_G, 7);
+}
+
+void calibratedSound()
+{
+  note(NOTE_C, 7);
+  note(NOTE_G, 7);
+  note(NOTE_C, 8);
+}
+
+void lidarFrontOnSound()
 {
   note(NOTE_B, 5, 27);
   note(NOTE_B, 6, 27);
@@ -83,7 +90,7 @@ void lidarFrontOn()
   note(NOTE_B, 7, 27);
 }
 
-void lidarFrontOff()
+void lidarFrontOffSound()
 {
   note(NOTE_B, 6, 27);
   note(NOTE_B, 7, 27);
@@ -97,7 +104,7 @@ void lidarFrontOff()
   note(NOTE_Eb, 7, 27);
 }
 
-void lidarSideOn()
+void lidarSideOnSound()
 {
   note(NOTE_Gs, 6, 27);
   note(NOTE_Gs, 7, 27);
@@ -109,7 +116,7 @@ void lidarSideOn()
   note(NOTE_E, 8, 27);
 }
 
-void lidarSideOff()
+void lidarSideOffSound()
 {
   note(NOTE_E, 7, 27);
   note(NOTE_E, 8, 27);
@@ -121,7 +128,7 @@ void lidarSideOff()
   note(NOTE_Bb, 7, 27);
 }
 
-void switchMode()
+void switchModeSound()
 {
   note(NOTE_C, 6, 27);
   note(NOTE_C, 7, 27);

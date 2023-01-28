@@ -15,7 +15,6 @@
 byte bleMode = 0;
 uint16_t bleDistance = 0; // 0 ~ 1000
 int bleAngle = 0;
-unsigned long bleReadDelay = 0;
 BLECharacteristic *pCharacteristic;
 bool active = false;
 bool activeToggled = false;
@@ -28,6 +27,7 @@ uint8_t lidarFrontFlagMask = 0b00001000;
 uint8_t lidarSideFlagMask = 0b00000100;
 uint8_t calibrateFlagMask = 0b00000010;
 uint8_t resetFlagMask = 0b00000001;
+unsigned long lastBleSend = 0;
 unsigned long lastBleCommand = 0;
 class MyServerCallbacks : public BLEServerCallbacks
 {
@@ -39,25 +39,24 @@ class MyServerCallbacks : public BLEServerCallbacks
     conn_params.max_int = 0x14; // max_int = 0x14*1.25ms = 25ms
     conn_params.min_int = 0xc;  // min_int = 0xc*1.25ms = 15ms
     conn_params.timeout = 400;  // timeout = 400*10ms = 4000ms
-    // start sent the update connection parameters to the peer device.
     esp_ble_gap_update_conn_params(&conn_params);
 
-    bluetoothConnected();
+    connectedSound();
 
     if (!lidarFront)
     {
-      lidarFrontOn();
+      lidarFrontOnSound();
     }
     if (!lidarSide)
     {
-      lidarSideOn();
+      lidarSideOnSound();
     }
     lidarFront = true;
     lidarSide = true;
   };
   void onDisconnect(BLEServer *pServer)
   {
-    bluetoothDisconnected();
+    disconnectedSound();
     lidarFront = true;
     lidarSide = true;
     BLEDevice::startAdvertising();
@@ -87,12 +86,12 @@ private:
         {
           if (flags & remoteFlagMask && !!(flags & remoteFlagMask) != bleMode == 0)
           {
-            switchMode();
+            switchModeSound();
             bleMode = 0;
           }
           if (flags & rideFlagMask && !!(flags & rideFlagMask) != bleMode == 1)
           {
-            switchMode();
+            switchModeSound();
             bleMode = 1;
           }
         }
@@ -101,12 +100,12 @@ private:
 
         if (lidarFront != !!(flags & lidarFrontFlagMask))
         {
-          (flags & lidarFrontFlagMask) ? lidarFrontOn() : lidarFrontOff();
+          (flags & lidarFrontFlagMask) ? lidarFrontOnSound() : lidarFrontOffSound();
         }
         lidarFront = flags & 0b00001000;
         if (lidarSide != !!(flags & lidarSideFlagMask))
         {
-          (flags & lidarSideFlagMask) ? lidarSideOn() : lidarSideOff();
+          (flags & lidarSideFlagMask) ? lidarSideOnSound() : lidarSideOffSound();
         }
         lidarSide = flags & lidarSideFlagMask;
 
@@ -119,7 +118,7 @@ private:
 
         if (flags & resetFlagMask)
         {
-          bluetoothDisconnected();
+          disconnectedSound();
           ESP.restart();
         }
       }
@@ -138,7 +137,7 @@ private:
 
 void BluetoothSetup()
 {
-  BLEDevice::init("VULCAN Super wheelchair"); // この名前がスマホなどに表示される
+  BLEDevice::init("VULCAN Super wheelchair");
   BLEServer *pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
   BLEService *pService = pServer->createService(SERVICE_UUID);
@@ -150,7 +149,7 @@ void BluetoothSetup()
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06); // iPhone接続の問題に役立つ
+  pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMinPreferred(0x12);
   BLEDevice::startAdvertising();
   blink();

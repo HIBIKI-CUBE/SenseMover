@@ -9,8 +9,8 @@ float angleCorrect(float distance, float angle)
 void setupLiDAR()
 {
   Serial2.begin(115200);
-  lidarFrontOn();
-  lidarSideOn();
+  lidarFrontOnSound();
+  lidarSideOnSound();
 }
 
 bool signDifferent(int a, int b)
