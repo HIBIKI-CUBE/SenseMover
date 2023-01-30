@@ -146,7 +146,7 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
 
             if (vLeft > 127 && vRight > 127)
             {
-              if (measuringFront && -width / 2 <= x2 && x2 < width / 2 && y2 < y)
+              if (110 < angle && angle < 250 && -width / 2 <= x2 && x2 < width / 2 && y2 < y)
               {
                 result.vMax = abs(result.vMax - 127) < abs(speed2v((y2 - stopDistance) / protectionSecs) - 127) ? result.vMax : speed2v((y2 - stopDistance) / protectionSecs);
               }
@@ -179,7 +179,8 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
               {
                 cautionRollL = true;
               }
-              else if (measuringRight){
+              else if (measuringRight)
+              {
                 cautionRollR = true;
               }
               result.status = caution;
@@ -197,7 +198,8 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
   if (lidarFront)
   {
     result.vMaxRatio = abs(min(result.vMax, 255) - 127) / 127.0;
-    if(result.vMaxRatio < 0.1){
+    if (result.vMaxRatio < 0.1)
+    {
       result.status = caution;
     }
     result.vLeft = (result.vLeft - 127) * result.vMaxRatio + 127;
