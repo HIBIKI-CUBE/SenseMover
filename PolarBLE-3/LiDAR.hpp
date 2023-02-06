@@ -31,6 +31,9 @@ struct resultLiDAR
   int vLeft;
   int vRight;
   int vMax;
+  float frontMin;
+  float leftMin;
+  float rightMin;
   float vMaxRatio;
   safetyStatus status = unknown;
 };
@@ -45,9 +48,6 @@ const uint16_t decelMax = 2730; // mm/s^2
 bool measuringLeft = false;
 bool measuringRight = false;
 bool measuringFront = false;
-
-float leftMin;
-float rightMin;
 
 bool cautionLeft;
 bool cautionRight;
@@ -78,7 +78,7 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
   result.vLeft = vLeft;
   result.vRight = vRight;
   result.status = unknown;
-  if (Serial2.available() && !(abs(vLeft - 127) < 3 && abs(vRight - 127) < 3))
+  if (Serial2.available())
   {
     uint8_t packet[250] = {};
     Serial2.read(packet, sizeof(packet));
@@ -93,7 +93,7 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
       float endAngle = angleCorrect(dl, al);
       float angleDiff = startAngle < endAngle ? endAngle - startAngle : 360 - startAngle + endAngle;
 
-      measuringLeft = (85 < startAngle && startAngle < 158 || 80 < endAngle && endAngle < 158);
+      measuringLeft = (85 < startAngle && startAngle < 158 || 85 < endAngle && endAngle < 158);
       measuringFront = (158 < startAngle && startAngle < 203 || 158 < endAngle && endAngle < 203);
       measuringRight = (203 < startAngle && startAngle < 275 || 203 < endAngle && endAngle < 275);
 
@@ -110,18 +110,19 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
       {
         result.vMax = 255;
         result.vMaxRatio = 1.0;
+        result.frontMin = 10000;
       }
       if (measuringLeft)
       {
         cautionLeft = false;
         cautionRollL = false;
-        leftMin = 1000;
+        result.leftMin = 10000;
       }
       if (measuringRight)
       {
         cautionRight = false;
         cautionRollR = false;
-        rightMin = 1000;
+        result.rightMin = 10000;
       }
 
       for (unsigned int i = 10; i < dataCount * 2 + 10; i += 2)
@@ -144,18 +145,29 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
             float x2 = -distance2 * cos(angle2);
             float y2 = distance2 * sin(angle2);
 
+            if(measuringFront){
+              result.frontMin = min(result.frontMin, y2);
+            }
+            if (measuringLeft && x2 < 0)
+            {
+              result.leftMin = min(result.leftMin, abs(x2));
+            }
+            if (measuringRight && x2 > 0)
+            {
+              result.rightMin = min(result.rightMin, abs(x2));
+            }
+
             if (vLeft > 127 && vRight > 127)
             {
               if (110 < angle && angle < 250 && -width / 2 <= x2 && x2 < width / 2 && y2 < y)
               {
-                result.vMax = abs(result.vMax - 127) < abs(speed2v((y2 - stopDistance) / protectionSecs) - 127) ? result.vMax : speed2v((y2 - stopDistance) / protectionSecs);
+                result.vMax = speed2v((result.frontMin - stopDistance) / protectionSecs);
               }
               else if (y <= cautionDistance)
               {
                 if (measuringLeft)
                 {
-                  leftMin = min(leftMin, abs(x2));
-                  if (leftMin < (width / 2 + stopDistance))
+                  if (result.leftMin < (width / 2 + stopDistance))
                   {
                     cautionLeft = true;
                     result.status = caution;
@@ -164,8 +176,7 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
 
                 if (measuringRight)
                 {
-                  rightMin = min(rightMin, abs(x2));
-                  if (rightMin < (width / 2 + stopDistance))
+                  if (result.rightMin < (width / 2 + stopDistance))
                   {
                     cautionRight = true;
                     result.status = caution;
@@ -179,7 +190,8 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
               {
                 cautionRollL = true;
               }
-              else if (measuringRight){
+              else if (measuringRight)
+              {
                 cautionRollR = true;
               }
               result.status = caution;
@@ -197,7 +209,8 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
   if (lidarFront)
   {
     result.vMaxRatio = abs(min(result.vMax, 255) - 127) / 127.0;
-    if(result.vMaxRatio < 0.1){
+    if (result.vMaxRatio < 0.1)
+    {
       result.status = caution;
     }
     result.vLeft = (result.vLeft - 127) * result.vMaxRatio + 127;
@@ -212,7 +225,7 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
     }
     if (cautionLeft && cautionRight)
     {
-      if (leftMin < rightMin)
+      if (result.leftMin < result.rightMin)
       {
         result.vRight = (result.vLeft - 127) / 2 + 127;
       }

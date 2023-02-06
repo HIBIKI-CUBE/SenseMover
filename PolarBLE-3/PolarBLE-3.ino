@@ -58,12 +58,6 @@ void loop()
     CoG = getCoG();
     radius = CoG.radius;
     theta = CoG.theta;
-    if (millis() - lastBleSend >= 5)
-    {
-      pCharacteristic->setValue((String(radius, DEC) + "," + String(theta, DEC)).c_str());
-      pCharacteristic->notify();
-      lastBleSend = millis();
-    }
     break;
   }
   if (calibrating)
@@ -147,7 +141,7 @@ void loop()
   safety = LiDAR(vlTarget, vrTarget, 1, 350, 150);
   vlTarget = safety.vLeft;
   vrTarget = safety.vRight;
-  if (active && (digitalRead(button) == HIGH || isEmergency || safety.status == caution || safety.status == stop))
+  if (active && (digitalRead(button) == HIGH || isEmergency || safety.status == caution || safety.status == stop) && !(abs(vlTarget - 127) < 3 && abs(vrTarget - 127) < 3))
   {
     if (safety.status == caution && (lidarFront || lidarSide))
     {
@@ -207,6 +201,20 @@ void loop()
 
   vLeft = constrain(vLeft, 25, 255);
   vRight = constrain(vRight, 25, 255);
+
+  if (millis() - lastBleSend >= 10)
+  {
+    pCharacteristic->setValue((
+                                  String((int)round(safety.frontMin), DEC) + "," +
+                                  String((int)round(safety.leftMin), DEC) + "," +
+                                  String((int)round(safety.rightMin), DEC) + "," +
+                                  (bleMode == 1
+                                       ? String(radius, DEC) + "," + String(theta, DEC)
+                                       : ""))
+                                  .c_str());
+    pCharacteristic->notify();
+    lastBleSend = millis();
+  }
 
   dacWrite(leftMotor, vLeft);
   dacWrite(rightMotor, vRight);
