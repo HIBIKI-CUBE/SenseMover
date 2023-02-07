@@ -145,7 +145,8 @@ resultLiDAR LiDAR(int vLeft, int vRight, int protectionSecs, int cautionDistance
             float x2 = -distance2 * cos(angle2);
             float y2 = distance2 * sin(angle2);
 
-            if(measuringFront){
+            if (measuringFront)
+            {
               result.frontMin = min(result.frontMin, y2);
             }
             if (measuringLeft && x2 < 0)
