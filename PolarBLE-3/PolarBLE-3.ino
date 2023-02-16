@@ -208,9 +208,7 @@ void loop()
                                   String((int)round(safety.frontMin), DEC) + "," +
                                   String((int)round(safety.leftMin), DEC) + "," +
                                   String((int)round(safety.rightMin), DEC) + "," +
-                                  (bleMode == 1
-                                       ? String(radius, DEC) + "," + String(theta, DEC)
-                                       : ""))
+                                  (bleMode == 1 ? String(radius, DEC) + "," + String(theta, DEC) : ""))
                                   .c_str());
     pCharacteristic->notify();
     lastBleSend = millis();
